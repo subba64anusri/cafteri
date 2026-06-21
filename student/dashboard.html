@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menu · Canteen OS</title>
+<link rel="stylesheet" href="../public/css/canteen.css">
+<style>
+  :root {
+    --accent: #1f8a57;
+    --accent-dark: #176e45;
+    --accent-soft: rgba(31, 138, 87, 0.12);
+  }
+
+  .food-card {
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .food-card h3 {
+    font-size: 17px;
+  }
+
+  .food-card__price {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--accent-dark);
+    margin: 4px 0 2px;
+  }
+
+  .food-card__stock {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  .food-card__stock.is-low {
+    color: #b3531f;
+    font-weight: 600;
+  }
+
+  .food-card__stock.is-out {
+    color: var(--danger-dark);
+    font-weight: 600;
+  }
+
+  .qty-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: auto;
+  }
+
+  .qty-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .qty-btn:hover { border-color: var(--accent); }
+  .qty-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .qty-value {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    min-width: 24px;
+    text-align: center;
+  }
+
+  .cart-fab-wrap { position: relative; }
+
+  .cart-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--danger);
+    color: white;
+    border-radius: 50%;
+    min-width: 19px;
+    height: 19px;
+    font-size: 11px;
+    font-weight: 700;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+  }
+
+  .grid-loading {
+    height: 150px;
+  }
+</style>
+</head>
+<body>
+
+<div class="ticket-rail">
+  <div class="ticket-rail__brand">🍽️ Canteen OS <span class="ticket-rail__role">Student</span></div>
+  <div class="ticket-rail__actions">
+    <span class="live-dot is-offline"><span class="live-dot__label">Connecting…</span></span>
+    <div class="cart-fab-wrap">
+      <a href="cart.html" class="btn btn-ghost btn-sm">Cart</a>
+      <span id="cartBadge" class="cart-badge">0</span>
+    </div>
+    <a href="orders.html" class="btn btn-ghost btn-sm">My Orders</a>
+    <button class="btn btn-danger btn-sm" id="logoutBtn">Logout</button>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="shell__header">
+    <div>
+      <div class="eyebrow">What looks good today?</div>
+      <h1 id="categoryTitle">Tiffins</h1>
+    </div>
+  </div>
+
+  <div class="category-tabs" id="categoryTabs"></div>
+
+  <div class="grid grid--auto" id="menuGrid">
+    <div class="card skeleton grid-loading"></div>
+    <div class="card skeleton grid-loading"></div>
+    <div class="card skeleton grid-loading"></div>
+  </div>
+</div>
+
+<script src="../public/js/config.js"></script>
+<script src="../public/js/shared.js"></script>
+<script>
+const CATEGORIES = ['Tiffins', 'Meals', 'Drinks', 'Snacks', 'Desserts'];
+const currentUser = localStorage.getItem('loggedInUserEmail');
+if (!currentUser) {
+  window.location.href = 'login.html';
+}
+
+function getCartKey() {
+  return `cart_${currentUser}`;
+}
+
+let cart = JSON.parse(localStorage.getItem(getCartKey()) || '[]');
+let currentCategory = 'Tiffins';
+let menuCache = [];
+
+function renderTabs() {
+  const tabs = document.getElementById('categoryTabs');
+  tabs.innerHTML = CATEGORIES.map(cat => `
+    <button class="category-tab ${cat === currentCategory ? 'is-active' : ''}" data-cat="${cat}">${cat}</button>
+  `).join('');
+
+  tabs.querySelectorAll('.category-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentCategory = btn.dataset.cat;
+      document.getElementById('categoryTitle').textContent = currentCategory;
+      renderTabs();
+      fetchMenu(currentCategory);
+    });
+  });
+}
+
+function updateCartUI() {
+  const totalItems = cart.reduce((sum, item) => sum + item.cartQuantity, 0);
+  const badge = document.getElementById('cartBadge');
+  if (totalItems > 0) {
+    badge.textContent = totalItems;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+  localStorage.setItem(getCartKey(), JSON.stringify(cart));
+}
+
+function stockLabel(item) {
+  if (item.quantity <= 0) return { text: 'Out of stock', cls: 'is-out' };
+  if (item.quantity <= 5) return { text: `Only ${item.quantity} left`, cls: 'is-low' };
+  return { text: `${item.quantity} available`, cls: '' };
+}
+
+function renderMenu() {
+  const grid = document.getElementById('menuGrid');
+
+  if (menuCache.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1;">
+        <div class="empty-state__icon">🍽️</div>
+        <div class="empty-state__title">Nothing here yet</div>
+        <p class="text-muted">No items in ${escapeHtml(currentCategory)} right now. Check back soon.</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = menuCache.map(item => {
+    const cartItem = cart.find(i => i._id === item._id);
+    const quantity = cartItem ? cartItem.cartQuantity : 0;
+    const stock = stockLabel(item);
+    const outOfStock = item.quantity <= 0;
+    const atMax = quantity >= item.quantity;
+
+    return `
+      <div class="card card--accent food-card" id="card-${item._id}">
+        <h3>${escapeHtml(item.name)}</h3>
+        <div class="food-card__price">${formatRupees(item.price)}</div>
+        <div class="food-card__stock ${stock.cls}">${stock.text}</div>
+
+        ${quantity === 0
+          ? `<button class="btn btn-primary btn-block" ${outOfStock ? 'disabled' : ''} data-add="${item._id}">
+               ${outOfStock ? 'Sold out' : 'Add to cart'}
+             </button>`
+          : `<div class="qty-row">
+               <button class="qty-btn" data-change="${item._id}" data-delta="-1">−</button>
+               <span class="qty-value">${quantity}</span>
+               <button class="qty-btn" data-change="${item._id}" data-delta="1" ${atMax ? 'disabled' : ''}>+</button>
+             </div>`
+        }
+      </div>`;
+  }).join('');
+
+  grid.querySelectorAll('[data-add]').forEach(btn => {
+    btn.addEventListener('click', () => addToCart(btn.dataset.add));
+  });
+  grid.querySelectorAll('[data-change]').forEach(btn => {
+    btn.addEventListener('click', () => changeQuantity(btn.dataset.change, Number(btn.dataset.delta)));
+  });
+}
+
+async function fetchMenu(category) {
+  document.getElementById('menuGrid').innerHTML = `
+    <div class="card skeleton grid-loading"></div>
+    <div class="card skeleton grid-loading"></div>
+    <div class="card skeleton grid-loading"></div>`;
+
+  try {
+    menuCache = await apiFetch(`/api/menu?category=${encodeURIComponent(category)}`);
+    renderMenu();
+  } catch (err) {
+    showToast(err.message, 'error');
+    document.getElementById('menuGrid').innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1;">
+        <div class="empty-state__icon">⚠️</div>
+        <div class="empty-state__title">Couldn't load the menu</div>
+        <p class="text-muted">${escapeHtml(err.message)}</p>
+      </div>`;
+  }
+}
+
+function addToCart(id) {
+  const item = menuCache.find(i => i._id === id);
+  if (!item || item.quantity <= 0) return;
+
+  const existing = cart.find(i => i._id === id);
+  if (existing) {
+    existing.cartQuantity += 1;
+  } else {
+    cart.push({ ...item, cartQuantity: 1 });
+  }
+  updateCartUI();
+  renderMenu();
+}
+
+function changeQuantity(id, delta) {
+  const item = cart.find(i => i._id === id);
+  const menuItem = menuCache.find(i => i._id === id);
+  if (!item) return;
+
+  if (delta > 0 && menuItem && item.cartQuantity >= menuItem.quantity) {
+    showToast(`Only ${menuItem.quantity} of "${menuItem.name}" available.`, 'error');
+    return;
+  }
+
+  item.cartQuantity += delta;
+  if (item.cartQuantity <= 0) {
+    cart = cart.filter(i => i._id !== id);
+  }
+  updateCartUI();
+  renderMenu();
+}
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('loggedInUserEmail');
+  window.location.href = 'login.html';
+});
+
+// Live menu updates: if admin adds/edits/removes an item or stock changes
+// from someone else's order, refresh in place without a page reload.
+(async () => {
+  const socket = await connectCanteenSocket({ role: 'student', email: currentUser });
+  if (socket) {
+    socket.on('menu:update', () => fetchMenu(currentCategory));
+  }
+})();
+
+renderTabs();
+updateCartUI();
+fetchMenu(currentCategory);
+</script>
+
+</body>
+</html>

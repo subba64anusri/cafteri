@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cart · Canteen OS</title>
+<link rel="stylesheet" href="../public/css/canteen.css">
+<style>
+  :root {
+    --accent: #1f8a57;
+    --accent-dark: #176e45;
+    --accent-soft: rgba(31, 138, 87, 0.12);
+  }
+
+  .total-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 24px;
+    margin-top: 18px;
+  }
+
+  .total-bar__label {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .total-bar__value {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .qty-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .qty-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="ticket-rail">
+  <div class="ticket-rail__brand">🍽️ Canteen OS <span class="ticket-rail__role">Student</span></div>
+  <div class="ticket-rail__actions">
+    <a href="dashboard.html" class="btn btn-ghost btn-sm">Menu</a>
+    <a href="orders.html" class="btn btn-ghost btn-sm">My Orders</a>
+    <a href="login.html" class="btn btn-danger btn-sm" id="logoutLink">Logout</a>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="shell__header">
+    <div>
+      <div class="eyebrow">Before you order</div>
+      <h1>Your Cart</h1>
+    </div>
+  </div>
+
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Price</th>
+          <th>Qty</th>
+          <th>Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="cartTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card card--accent total-bar">
+    <div>
+      <div class="total-bar__label">Total payable</div>
+      <div class="total-bar__value" id="totalValue">₹0</div>
+    </div>
+    <button class="btn btn-primary" id="checkoutBtn" onclick="checkout()">Place order</button>
+  </div>
+</div>
+
+<script src="../public/js/config.js"></script>
+<script src="../public/js/shared.js"></script>
+<script>
+const currentUser = localStorage.getItem('loggedInUserEmail');
+if (!currentUser) {
+  window.location.href = 'login.html';
+}
+
+// Single source of truth for the cart key — fixes the original bug where
+// checkout/remove read from 'studentCart' while the dashboard wrote to
+// 'cart_<email>', causing items to silently vanish.
+function getCartKey() {
+  return `cart_${currentUser}`;
+}
+
+function loadCart() {
+  return JSON.parse(localStorage.getItem(getCartKey()) || '[]');
+}
+
+function saveCart(cart) {
+  localStorage.setItem(getCartKey(), JSON.stringify(cart));
+}
+
+function refreshCart() {
+  const cart = loadCart();
+  const tbody = document.getElementById('cartTableBody');
+  const totalValue = document.getElementById('totalValue');
+  const checkoutBtn = document.getElementById('checkoutBtn');
+
+  if (cart.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px;" class="text-muted">Your cart is empty. <a href="dashboard.html" style="color:var(--accent-dark); font-weight:600;">Browse the menu →</a></td></tr>`;
+    totalValue.textContent = formatRupees(0);
+    checkoutBtn.disabled = true;
+    return;
+  }
+
+  checkoutBtn.disabled = false;
+  let total = 0;
+
+  tbody.innerHTML = cart.map(item => {
+    const itemTotal = item.price * item.cartQuantity;
+    total += itemTotal;
+    return `
+      <tr>
+        <td>${escapeHtml(item.name)}</td>
+        <td class="price-cell">${formatRupees(item.price)}</td>
+        <td>
+          <div class="qty-inline">
+            <button class="qty-btn" data-change="${item._id}" data-delta="-1">−</button>
+            <span class="qty-cell">${item.cartQuantity}</span>
+            <button class="qty-btn" data-change="${item._id}" data-delta="1">+</button>
+          </div>
+        </td>
+        <td class="price-cell">${formatRupees(itemTotal)}</td>
+        <td><button class="btn btn-outline btn-sm" data-remove="${item._id}">Remove</button></td>
+      </tr>`;
+  }).join('');
+
+  totalValue.textContent = formatRupees(total);
+
+  tbody.querySelectorAll('[data-change]').forEach(btn => {
+    btn.addEventListener('click', () => updateQty(btn.dataset.change, Number(btn.dataset.delta)));
+  });
+  tbody.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', () => removeItem(btn.dataset.remove));
+  });
+}
+
+function updateQty(id, delta) {
+  let cart = loadCart();
+  const item = cart.find(i => i._id === id);
+  if (item) {
+    item.cartQuantity += delta;
+    if (item.cartQuantity <= 0) {
+      cart = cart.filter(i => i._id !== id);
+    }
+  }
+  saveCart(cart);
+  refreshCart();
+}
+
+function removeItem(id) {
+  let cart = loadCart();
+  cart = cart.filter(i => i._id !== id);
+  saveCart(cart);
+  refreshCart();
+}
+
+async function checkout() {
+  const cart = loadCart();
+  if (cart.length === 0) {
+    showToast('Your cart is empty.', 'error');
+    return;
+  }
+
+  const checkoutBtn = document.getElementById('checkoutBtn');
+  checkoutBtn.disabled = true;
+  checkoutBtn.textContent = 'Placing order…';
+
+  try {
+    const order = await apiFetch('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({ studentEmail: currentUser, items: cart })
+    });
+
+    saveCart([]);
+    showToast(`Order placed! Your token is #${order.token}.`);
+    window.location.href = 'orders.html';
+  } catch (err) {
+    showToast(err.message, 'error');
+    checkoutBtn.disabled = false;
+    checkoutBtn.textContent = 'Place order';
+  }
+}
+
+document.getElementById('logoutLink').addEventListener('click', () => {
+  localStorage.removeItem('loggedInUserEmail');
+});
+
+refreshCart();
+</script>
+
+</body>
+</html>

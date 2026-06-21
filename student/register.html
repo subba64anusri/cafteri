@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Account · Canteen OS</title>
+<link rel="stylesheet" href="../public/css/canteen.css">
+<style>
+  :root {
+    --accent: #1f8a57;
+    --accent-dark: #176e45;
+    --accent-soft: rgba(31, 138, 87, 0.12);
+  }
+</style>
+</head>
+<body>
+
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-card__eyebrow">Counter 01</div>
+    <h1>Create Account</h1>
+
+    <div id="banner" class="banner banner--error"></div>
+
+    <form id="registerForm">
+      <div class="field">
+        <label for="username">Full name</label>
+        <input type="text" id="username" placeholder="Your name" autocomplete="name" required>
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@college.edu" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="At least 4 characters" autocomplete="new-password" required minlength="4">
+      </div>
+      <div class="field">
+        <label for="confirmPassword">Confirm password</label>
+        <input type="password" id="confirmPassword" placeholder="Re-enter your password" autocomplete="new-password" required minlength="4">
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="submitBtn">Register</button>
+    </form>
+
+    <div class="auth-card__footer">
+      <a href="login.html">Already have an account? Login</a>
+    </div>
+  </div>
+</div>
+
+<script src="../public/js/config.js"></script>
+<script src="../public/js/shared.js"></script>
+<script>
+const form = document.getElementById('registerForm');
+const banner = document.getElementById('banner');
+const submitBtn = document.getElementById('submitBtn');
+
+function setBanner(message) {
+  if (!message) {
+    banner.classList.remove('is-visible');
+    return;
+  }
+  banner.textContent = message;
+  banner.classList.add('is-visible');
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  setBanner('');
+
+  const username = document.getElementById('username').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const confirmPassword = document.getElementById('confirmPassword').value.trim();
+
+  if (password !== confirmPassword) {
+    setBanner('Passwords do not match.');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Creating account…';
+
+  try {
+    await apiFetch('/api/student/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, email, password })
+    });
+
+    showToast('Account created. Please log in.');
+    window.location.href = 'login.html';
+  } catch (err) {
+    setBanner(err.message);
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Register';
+  }
+});
+</script>
+
+</body>
+</html>

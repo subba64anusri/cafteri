@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manage Menu · Canteen OS</title>
+<link rel="stylesheet" href="../public/css/canteen.css">
+<style>
+  :root {
+    --accent: #2b5fd9;
+    --accent-dark: #21459c;
+    --accent-soft: rgba(43, 95, 217, 0.12);
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 23, 31, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+
+  .modal-overlay.is-open {
+    display: flex;
+  }
+
+  .modal {
+    background: var(--paper);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: var(--shadow-pop);
+  }
+
+  .modal h2 {
+    font-size: 20px;
+    margin-bottom: 18px;
+  }
+
+  .modal form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .modal__actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .modal__actions .btn {
+    flex: 1;
+  }
+
+  .stock-tag {
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+
+  .stock-tag.is-low { color: #b3531f; font-weight: 600; }
+  .stock-tag.is-out { color: var(--danger-dark); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="ticket-rail">
+  <div class="ticket-rail__brand">🍽️ Canteen OS <span class="ticket-rail__role">Admin</span></div>
+  <div class="ticket-rail__actions">
+    <a href="dashboard.html" class="btn btn-ghost btn-sm">Dashboard</a>
+    <button class="btn btn-danger btn-sm" id="logoutBtn">Logout</button>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="shell__header">
+    <div>
+      <div class="eyebrow" id="categoryEyebrow">Tiffins</div>
+      <h1 id="currentCategoryTitle">Manage Menu</h1>
+    </div>
+    <button class="btn btn-primary" id="addFoodBtn">+ Add item</button>
+  </div>
+
+  <div class="category-tabs" id="categoryTabs"></div>
+
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Food</th>
+          <th>Price</th>
+          <th>Stock</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="menuTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add / Edit modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Add Item</h2>
+    <form id="itemForm">
+      <div class="field">
+        <label for="itemName">Name</label>
+        <input type="text" id="itemName" placeholder="e.g. Masala Dosa" required>
+      </div>
+      <div class="field">
+        <label for="itemPrice">Price (₹)</label>
+        <input type="number" id="itemPrice" min="0" step="1" required>
+      </div>
+      <div class="field">
+        <label for="itemQuantity">Stock quantity</label>
+        <input type="number" id="itemQuantity" min="0" step="1" required>
+      </div>
+      <div class="field">
+        <label for="itemCategory">Category</label>
+        <select id="itemCategory" required></select>
+      </div>
+      <div id="modalError" class="field-error"></div>
+      <div class="modal__actions">
+        <button type="button" class="btn btn-outline" id="modalCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="modalSubmitBtn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="../public/js/config.js"></script>
+<script src="../public/js/shared.js"></script>
+<script>
+const CATEGORIES = ['Tiffins', 'Meals', 'Drinks', 'Snacks', 'Desserts'];
+let selectedCategory = 'Tiffins';
+let editingItemId = null;
+let menuCache = [];
+
+const modalOverlay = document.getElementById('modalOverlay');
+const modalTitle = document.getElementById('modalTitle');
+const modalError = document.getElementById('modalError');
+const itemForm = document.getElementById('itemForm');
+const categorySelect = document.getElementById('itemCategory');
+
+categorySelect.innerHTML = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+
+function renderTabs() {
+  const tabs = document.getElementById('categoryTabs');
+  tabs.innerHTML = CATEGORIES.map(cat => `
+    <button class="category-tab ${cat === selectedCategory ? 'is-active' : ''}" data-cat="${cat}">${cat}</button>
+  `).join('');
+
+  tabs.querySelectorAll('.category-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedCategory = btn.dataset.cat;
+      document.getElementById('categoryEyebrow').textContent = selectedCategory;
+      renderTabs();
+      filterMenu(selectedCategory);
+    });
+  });
+}
+
+function stockTag(item) {
+  if (item.quantity <= 0) return `<span class="stock-tag is-out">Out of stock</span>`;
+  if (item.quantity <= 5) return `<span class="stock-tag is-low">${item.quantity} left</span>`;
+  return `<span class="stock-tag">${item.quantity}</span>`;
+}
+
+function renderTable() {
+  const tableBody = document.getElementById('menuTableBody');
+
+  if (menuCache.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-state__icon">📋</div><div class="empty-state__title">No items in ${escapeHtml(selectedCategory)}</div><p class="text-muted">Add your first item to this category.</p></div></td></tr>`;
+    return;
+  }
+
+  tableBody.innerHTML = menuCache.map(item => `
+    <tr>
+      <td>${escapeHtml(item.name)}</td>
+      <td class="price-cell">${formatRupees(item.price)}</td>
+      <td>${stockTag(item)}</td>
+      <td class="action-cell">
+        <button class="btn btn-outline btn-sm" data-edit="${item._id}">Edit</button>
+        <button class="btn btn-danger btn-sm" data-delete="${item._id}">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+
+  tableBody.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.addEventListener('click', () => openEditModal(btn.dataset.edit));
+  });
+  tableBody.querySelectorAll('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', () => deleteItem(btn.dataset.delete));
+  });
+}
+
+async function filterMenu(category) {
+  document.getElementById('currentCategoryTitle').textContent = `Manage Menu`;
+  try {
+    menuCache = await apiFetch(`/api/menu?category=${encodeURIComponent(category)}`);
+    renderTable();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function openAddModal() {
+  editingItemId = null;
+  modalTitle.textContent = 'Add Item';
+  itemForm.reset();
+  document.getElementById('itemCategory').value = selectedCategory;
+  modalError.textContent = '';
+  modalOverlay.classList.add('is-open');
+  document.getElementById('itemName').focus();
+}
+
+function openEditModal(id) {
+  const item = menuCache.find(i => i._id === id);
+  if (!item) return;
+  editingItemId = id;
+  modalTitle.textContent = 'Edit Item';
+  document.getElementById('itemName').value = item.name;
+  document.getElementById('itemPrice').value = item.price;
+  document.getElementById('itemQuantity').value = item.quantity;
+  document.getElementById('itemCategory').value = item.category;
+  modalError.textContent = '';
+  modalOverlay.classList.add('is-open');
+}
+
+function closeModal() {
+  modalOverlay.classList.remove('is-open');
+}
+
+document.getElementById('addFoodBtn').addEventListener('click', openAddModal);
+document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
+
+itemForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  modalError.textContent = '';
+
+  const payload = {
+    name: document.getElementById('itemName').value.trim(),
+    price: Number(document.getElementById('itemPrice').value),
+    quantity: Number(document.getElementById('itemQuantity').value),
+    category: document.getElementById('itemCategory').value
+  };
+
+  const submitBtn = document.getElementById('modalSubmitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving…';
+
+  try {
+    if (editingItemId) {
+      await apiFetch(`/api/menu/${editingItemId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+      showToast('Item updated.');
+    } else {
+      await apiFetch('/api/menu', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      showToast('Item added.');
+    }
+    closeModal();
+    filterMenu(selectedCategory);
+  } catch (err) {
+    modalError.textContent = err.message;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Save';
+  }
+});
+
+async function deleteItem(id) {
+  const item = menuCache.find(i => i._id === id);
+  if (!confirm(`Delete "${item ? item.name : 'this item'}"? This can't be undone.`)) return;
+
+  try {
+    await apiFetch(`/api/menu/${id}`, { method: 'DELETE' });
+    showToast('Item deleted.');
+    filterMenu(selectedCategory);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('canteenAdminSession');
+  window.location.href = 'login.html';
+});
+
+// Live: if another admin (or this admin in another tab) changes the menu,
+// or stock changes from a student order, reflect it immediately.
+(async () => {
+  const socket = await connectCanteenSocket({ role: 'admin' });
+  if (socket) {
+    socket.on('menu:update', () => filterMenu(selectedCategory));
+  }
+})();
+
+renderTabs();
+filterMenu(selectedCategory);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports · Canteen OS</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="../public/css/canteen.css">
+<style>
+  :root {
+    --accent: #2b5fd9;
+    --accent-dark: #21459c;
+    --accent-soft: rgba(43, 95, 217, 0.12);
+  }
+
+  .layout-split {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 22px;
+    align-items: start;
+  }
+
+  @media (max-width: 860px) {
+    .layout-split { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    padding: 24px;
+  }
+
+  .panel h2 {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+
+  .panel__sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  .chart-container {
+    position: relative;
+    width: 100%;
+    max-width: 280px;
+    margin: 12px auto 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="ticket-rail">
+  <div class="ticket-rail__brand">🍽️ Canteen OS <span class="ticket-rail__role">Admin</span></div>
+  <div class="ticket-rail__actions">
+    <span class="live-dot is-offline"><span class="live-dot__label">Connecting…</span></span>
+    <a href="dashboard.html" class="btn btn-ghost btn-sm">Dashboard</a>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="shell__header">
+    <div>
+      <div class="eyebrow">Performance</div>
+      <h1>Sales Reports</h1>
+    </div>
+  </div>
+
+  <div class="layout-split">
+    <div class="card card--accent panel">
+      <h2>Item breakdown</h2>
+      <div class="panel__sub">Units sold and revenue, across all orders</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Food item</th>
+            <th>Units sold</th>
+            <th>Revenue</th>
+          </tr>
+        </thead>
+        <tbody id="reportTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card card--accent panel" style="text-align:center;">
+      <h2>Revenue by category</h2>
+      <div class="panel__sub">Where the money's coming from</div>
+      <div class="chart-container">
+        <canvas id="revenueChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../public/js/config.js"></script>
+<script src="../public/js/shared.js"></script>
+<script>
+let salesChart = null;
+
+function renderChart(categories) {
+  const ctx = document.getElementById('revenueChart').getContext('2d');
+  if (salesChart) salesChart.destroy();
+
+  if (categories.length === 0) {
+    return;
+  }
+
+  salesChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: categories.map(c => c.category),
+      datasets: [{
+        data: categories.map(c => c.revenue),
+        backgroundColor: ['#2b5fd9', '#1f8a57', '#d9622b', '#d33c3c', '#9c4fd9'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#14171f', font: { family: 'Inter', size: 12 } }
+        }
+      }
+    }
+  });
+}
+
+async function buildReport() {
+  try {
+    const { items, categories } = await apiFetch('/api/reports/items');
+
+    const tbody = document.getElementById('reportTableBody');
+
+    if (items.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-state__icon">📊</div><div class="empty-state__title">No sales yet</div><p class="text-muted">Numbers will show up here as orders come in.</p></div></td></tr>`;
+      renderChart([]);
+      return;
+    }
+
+    let overallUnits = 0;
+    let overallRevenue = 0;
+
+    tbody.innerHTML = items.map(item => {
+      overallUnits += item.units;
+      overallRevenue += item.revenue;
+      return `
+        <tr>
+          <td>${escapeHtml(item.name)}</td>
+          <td class="qty-cell">${item.units} units</td>
+          <td class="price-cell">${formatRupees(item.revenue)}</td>
+        </tr>`;
+    }).join('') + `
+      <tr class="row--total">
+        <td>Total</td>
+        <td>${overallUnits} units</td>
+        <td>${formatRupees(overallRevenue)}</td>
+      </tr>`;
+
+    renderChart(categories);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+(async () => {
+  const socket = await connectCanteenSocket({ role: 'admin' });
+  if (socket) {
+    socket.on('order:new', buildReport);
+    socket.on('order:status', buildReport);
+  }
+})();
+
+buildReport();
+</script>
+
+</body>
+</html>

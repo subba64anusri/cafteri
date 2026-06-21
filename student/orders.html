@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Orders · Canteen OS</title>
+<link rel="stylesheet" href="../public/css/canteen.css">
+<style>
+  :root {
+    --accent: #1f8a57;
+    --accent-dark: #176e45;
+    --accent-soft: rgba(31, 138, 87, 0.12);
+  }
+</style>
+</head>
+<body>
+
+<div class="ticket-rail">
+  <div class="ticket-rail__brand">🍽️ Canteen OS <span class="ticket-rail__role">Student</span></div>
+  <div class="ticket-rail__actions">
+    <span class="live-dot is-offline"><span class="live-dot__label">Connecting…</span></span>
+    <a href="dashboard.html" class="btn btn-ghost btn-sm">Menu</a>
+    <a href="cart.html" class="btn btn-ghost btn-sm">Cart</a>
+    <a href="login.html" class="btn btn-danger btn-sm" id="logoutLink">Logout</a>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="shell__header">
+    <div>
+      <div class="eyebrow">Live status</div>
+      <h1>My Orders</h1>
+    </div>
+  </div>
+
+  <div class="grid grid--auto" id="ordersContainer">
+    <div class="card skeleton" style="height: 180px;"></div>
+  </div>
+</div>
+
+<script src="../public/js/config.js"></script>
+<script src="../public/js/shared.js"></script>
+<script>
+const currentUser = localStorage.getItem('loggedInUserEmail');
+if (!currentUser) {
+  window.location.href = 'login.html';
+}
+
+const STATUS_LABEL = {
+  Preparing: { text: '🔔 Preparing', cls: 'status-pill--preparing' },
+  Ready: { text: '✅ Ready for pickup', cls: 'status-pill--ready' },
+  Completed: { text: '🍽️ Completed', cls: 'status-pill--completed' },
+  Cancelled: { text: '✕ Cancelled', cls: 'status-pill--cancelled' }
+};
+
+function renderOrders(orders) {
+  const container = document.getElementById('ordersContainer');
+
+  if (orders.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1;">
+        <div class="empty-state__icon">📦</div>
+        <div class="empty-state__title">No orders yet</div>
+        <p class="text-muted">When you place an order it'll show up here. <a href="dashboard.html" style="color:var(--accent-dark); font-weight:600;">Go to the menu →</a></p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = orders.map(order => {
+    const itemsList = order.items.map(i =>
+      `${escapeHtml(i.name)} <span class="qty">×${i.cartQuantity}</span>`
+    ).join('<br>');
+    const status = STATUS_LABEL[order.status] || STATUS_LABEL.Preparing;
+
+    return `
+      <div class="ticket" data-order-id="${order._id}">
+        <div class="ticket__head">
+          <div class="ticket__token">
+            #${order.token}
+            <span class="ticket__token-label">Token</span>
+          </div>
+          <span class="status-pill ${status.cls}">${status.text}</span>
+        </div>
+        <div class="ticket__body">
+          <div class="ticket__items">${itemsList}</div>
+          <div class="ticket__total">${formatRupees(order.total)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+let ordersCache = [];
+
+async function loadOrders() {
+  try {
+    ordersCache = await apiFetch(`/api/orders?email=${encodeURIComponent(currentUser)}`);
+    renderOrders(ordersCache);
+  } catch (err) {
+    showToast(err.message, 'error');
+    document.getElementById('ordersContainer').innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1;">
+        <div class="empty-state__icon">⚠️</div>
+        <div class="empty-state__title">Couldn't load your orders</div>
+        <p class="text-muted">${escapeHtml(err.message)}</p>
+      </div>`;
+  }
+}
+
+(async () => {
+  const socket = await connectCanteenSocket({ role: 'student', email: currentUser });
+  if (socket) {
+    socket.on('order:status', (updatedOrder) => {
+      if (updatedOrder.studentEmail !== currentUser) return;
+      const idx = ordersCache.findIndex(o => o._id === updatedOrder._id);
+      if (idx >= 0) {
+        ordersCache[idx] = updatedOrder;
+      } else {
+        ordersCache.unshift(updatedOrder);
+      }
+      renderOrders(ordersCache);
+      if (updatedOrder.status === 'Ready') {
+        showToast(`Order #${updatedOrder.token} is ready for pickup!`);
+      }
+    });
+  }
+})();
+
+document.getElementById('logoutLink').addEventListener('click', () => {
+  localStorage.removeItem('loggedInUserEmail');
+});
+
+loadOrders();
+</script>
+
+</body>
+</html>

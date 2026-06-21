@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login · Canteen OS</title>
+<link rel="stylesheet" href="../public/css/canteen.css">
+<style>
+  :root {
+    --accent: #2b5fd9;
+    --accent-dark: #21459c;
+    --accent-soft: rgba(43, 95, 217, 0.12);
+  }
+</style>
+</head>
+<body>
+
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-card__eyebrow">Counter 02</div>
+    <h1>Admin Login</h1>
+
+    <div id="banner" class="banner banner--error"></div>
+
+    <form id="loginForm">
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="admin" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="submitBtn">Login</button>
+    </form>
+
+    <div class="auth-card__footer">
+      <a href="../index.html">← Back to role selection</a>
+    </div>
+  </div>
+</div>
+
+<script src="../public/js/config.js"></script>
+<script src="../public/js/shared.js"></script>
+<script>
+const form = document.getElementById('loginForm');
+const banner = document.getElementById('banner');
+const submitBtn = document.getElementById('submitBtn');
+
+function setBanner(message) {
+  if (!message) {
+    banner.classList.remove('is-visible');
+    return;
+  }
+  banner.textContent = message;
+  banner.classList.add('is-visible');
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  setBanner('');
+
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Logging in…';
+
+  try {
+    await apiFetch('/api/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password })
+    });
+
+    localStorage.setItem('canteenAdminSession', username);
+    window.location.href = 'dashboard.html';
+  } catch (err) {
+    setBanner(err.message);
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Login';
+  }
+});
+</script>
+
+</body>
+</html>

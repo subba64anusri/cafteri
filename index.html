@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canteen OS</title>
+<link rel="stylesheet" href="public/css/canteen.css">
+<style>
+  body {
+    background: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow-x: hidden;
+  }
+
+  .landing {
+    max-width: 920px;
+    width: 100%;
+    text-align: center;
+    color: var(--paper);
+  }
+
+  .landing__eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #d9622b;
+    margin-bottom: 14px;
+  }
+
+  .landing h1 {
+    font-size: clamp(32px, 5vw, 52px);
+    margin-bottom: 14px;
+  }
+
+  .landing p.lead {
+    color: rgba(250, 247, 240, 0.65);
+    font-size: 16px;
+    max-width: 480px;
+    margin: 0 auto 44px;
+  }
+
+  .role-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+
+  @media (max-width: 760px) {
+    .role-grid { grid-template-columns: 1fr; }
+  }
+
+  .role-card {
+    background: rgba(250, 247, 240, 0.04);
+    border: 1px solid rgba(250, 247, 240, 0.12);
+    border-radius: var(--radius-lg);
+    padding: 30px 24px;
+    text-align: left;
+    text-decoration: none;
+    color: var(--paper);
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .role-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .role-card--student::before { background: #1f8a57; }
+  .role-card--admin::before { background: #2b5fd9; }
+  .role-card--chef::before { background: #d9622b; }
+
+  .role-card:hover {
+    transform: translateY(-4px);
+    background: rgba(250, 247, 240, 0.07);
+  }
+
+  .role-card--student:hover { border-color: #1f8a57; }
+  .role-card--admin:hover { border-color: #2b5fd9; }
+  .role-card--chef:hover { border-color: #d9622b; }
+
+  .role-card__token {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin-bottom: 16px;
+  }
+
+  .role-card h2 {
+    font-size: 21px;
+    margin-bottom: 8px;
+  }
+
+  .role-card p {
+    font-size: 13.5px;
+    opacity: 0.65;
+    line-height: 1.5;
+  }
+
+  .landing__footer {
+    margin-top: 40px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: rgba(250, 247, 240, 0.35);
+  }
+</style>
+</head>
+<body>
+
+<div class="landing">
+  <div class="landing__eyebrow">Order · Prepare · Serve</div>
+  <h1>Canteen OS</h1>
+  <p class="lead">One ticket, three counters. Pick how you're using the canteen today.</p>
+
+  <div class="role-grid">
+    <a href="student/login.html" class="role-card role-card--student">
+      <div class="role-card__token">01 · Order food</div>
+      <h2>Student</h2>
+      <p>Browse the menu, build your cart, and track your order live until it's ready for pickup.</p>
+    </a>
+
+    <a href="admin/login.html" class="role-card role-card--admin">
+      <div class="role-card__token">02 · Run the canteen</div>
+      <h2>Admin</h2>
+      <p>Manage the menu, watch revenue come in, and see what's selling — updated as it happens.</p>
+    </a>
+
+    <a href="chef/login.html" class="role-card role-card--chef">
+      <div class="role-card__token">03 · Cook the order</div>
+      <h2>Chef</h2>
+      <p>See new tickets the moment they're placed and mark them ready with one tap.</p>
+    </a>
+  </div>
+
+  <div class="landing__footer">canteen-os · real-time kitchen ticketing</div>
+</div>
+
+</body>
+</html>
