@@ -226,7 +226,18 @@
     height: 150px;
   }
 
+  /* Enhanced Responsive Category Navigation Layout styling overrides */
+  .category-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    width: 100%;
+  }
+
   @media (max-width: 580px) {
+    .ticket-rail__actions {
+      gap: 6px;
+    }
     .ticket-rail__actions .btn-sm {
       padding: 6px 8px;
       font-size: 12px;
@@ -235,13 +246,21 @@
 
   @media (max-width: 480px) {
     .category-tabs {
-      display: flex;
       overflow-x: auto;
       white-space: nowrap;
-      padding-bottom: 6px;
+      padding-bottom: 10px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .category-tabs::-webkit-scrollbar {
+      display: none;
     }
     .category-tab {
-      padding: 6px 12px;
+      padding: 8px 16px;
+      flex: 0 0 auto;
+    }
+    .shell__header {
+      margin-bottom: 12px;
     }
   }
 </style>
@@ -251,7 +270,7 @@
 <div class="ticket-rail">
   <div class="ticket-rail__brand">🍽️ Cafteri <span class="ticket-rail__role">Student</span></div>
   <div class="ticket-rail__actions">
-    <button id="toggleFavsViewBtn" class="btn btn-ghost btn-sm">❤️ Favorites </button>
+    <button id="toggleFavsViewBtn" class="btn btn-ghost btn-sm">❤️ Fav </button>
     <div class="cart-fab-wrap">
       <a href="cart.html" class="btn btn-ghost btn-sm">Cart</a>
       <span id="cartBadge" class="cart-badge">0</span>
@@ -461,9 +480,9 @@ document.getElementById('toggleFavsViewBtn').addEventListener('click', () => {
   showFavoritesOnly = !showFavoritesOnly;
   const btn = document.getElementById('toggleFavsViewBtn');
   if (showFavoritesOnly) {
-    btn.innerHTML = '🤍 All Menu';
+    btn.innerHTML = '🤍 All';
   } else {
-    btn.innerHTML = '❤️ Favorites ';
+    btn.innerHTML = '❤️ Fav ';
   }
   renderMenu();
 });
@@ -522,7 +541,8 @@ function changeQuantity(id, delta) {
 
 document.getElementById('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('loggedInUserEmail');
-  window.location.href = '../index.html';
+  // Dynamic navigation routing handling fallback mechanism for strict mobile web containers
+  window.location.replace('../index.html');
 });
 
 (async () => {
