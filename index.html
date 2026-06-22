@@ -41,17 +41,62 @@
     color: rgba(250, 247, 240, 0.65);
     font-size: 16px;
     max-width: 480px;
-    margin: 0 auto 44px;
+    margin: 0 auto 24px;
+  }
+
+  /* Portal Toggle Controller Styles */
+  .toggle-container {
+    display: inline-flex;
+    background: rgba(250, 247, 240, 0.06);
+    border: 1px solid rgba(250, 247, 240, 0.12);
+    padding: 4px;
+    border-radius: 30px;
+    margin-bottom: 34px;
+  }
+
+  .toggle-btn {
+    background: none;
+    border: none;
+    color: rgba(250, 247, 240, 0.6);
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .toggle-btn--active {
+    background: var(--paper);
+    color: var(--ink);
+    font-weight: 600;
   }
 
   .role-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 18px;
+    transition: all 0.25s ease-in-out;
+  }
+
+  /* Layout state utilities for handling single vs dual views */
+  .role-grid--single {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  .role-grid--staff {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 640px;
+    margin: 0 auto;
   }
 
   @media (max-width: 760px) {
-    .role-grid { grid-template-columns: 1fr; }
+    .role-grid, .role-grid--single, .role-grid--staff { 
+      grid-template-columns: 1fr; 
+      max-width: 100%;
+    }
   }
 
   .role-card {
@@ -122,20 +167,25 @@
   <h1>Cafteri</h1>
   <p class="lead">One ticket, three counters. Pick how you're using the canteen today.</p>
 
-  <div class="role-grid">
-    <a href="student/login.html" class="role-card role-card--student">
+  <div class="toggle-container" id="toggleContainer">
+    <button class="toggle-btn toggle-btn--active" id="studentTabBtn">🎓 Student Account</button>
+    <button class="toggle-btn" id="staffTabBtn">📋 Staff Portal</button>
+  </div>
+
+  <div class="role-grid role-grid--single" id="portalGrid">
+    <a href="student/login.html" class="role-card role-card--student" id="studentCard">
       <div class="role-card__token">01 · Order food</div>
       <h2>Student</h2>
       <p>Browse the menu, build your cart, and track your order live until it's ready for pickup.</p>
     </a>
 
-    <a href="admin/login.html" class="role-card role-card--admin">
+    <a href="admin/login.html" class="role-card role-card--admin" id="adminCard" style="display: none;">
       <div class="role-card__token">02 · Run the canteen</div>
       <h2>Admin</h2>
       <p>Manage the menu, watch revenue come in, and see what's selling — updated as it happens.</p>
     </a>
 
-    <a href="chef/login.html" class="role-card role-card--chef">
+    <a href="chef/login.html" class="role-card role-card--chef" id="chefCard" style="display: none;">
       <div class="role-card__token">03 · Cook the order</div>
       <h2>Chef</h2>
       <p>See new tickets the moment they're placed and mark them ready with one tap.</p>
@@ -144,6 +194,50 @@
 
   <div class="landing__footer">cafteri · real-time kitchen ticketing</div>
 </div>
+
+<script>
+const studentTabBtn = document.getElementById('studentTabBtn');
+const staffTabBtn = document.getElementById('staffTabBtn');
+const portalGrid = document.getElementById('portalGrid');
+
+const studentCard = document.getElementById('studentCard');
+const adminCard = document.getElementById('adminCard');
+const chefCard = document.getElementById('chefCard');
+
+function showStudentView() {
+  studentTabBtn.classList.add('toggle-btn--active');
+  staffTabBtn.classList.remove('toggle-btn--active');
+  
+  // Re-adjust card containers layout flow
+  portalGrid.className = 'role-grid role-grid--single';
+  studentCard.style.display = 'block';
+  adminCard.style.display = 'none';
+  chefCard.style.display = 'none';
+}
+
+function showStaffView() {
+  staffTabBtn.classList.add('toggle-btn--active');
+  studentTabBtn.classList.remove('toggle-btn--active');
+  
+  // Re-adjust card containers layout flow
+  portalGrid.className = 'role-grid role-grid--staff';
+  studentCard.style.display = 'none';
+  adminCard.style.display = 'block';
+  chefCard.style.display = 'block';
+}
+// Add this inside the <script> tags of index.html
+document.addEventListener("DOMContentLoaded", () => {
+  // Check if a student is already logged in
+  const loggedInEmail = localStorage.getItem('loggedInUserEmail');
+  
+  if (loggedInEmail) {
+    // Session exists! Automatically bounce them straight to their dashboard
+    window.location.replace('student/dashboard.html');
+  }
+});
+studentTabBtn.addEventListener('click', showStudentView);
+staffTabBtn.addEventListener('click', showStaffView);
+</script>
 
 </body>
 </html>

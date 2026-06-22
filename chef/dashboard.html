@@ -58,62 +58,6 @@
     gap: 12px;
   }
 
-  /* --- New Styles for Date-wise History View --- */
-  .history-layout {
-    display: flex;
-    gap: 24px;
-    margin-top: 20px;
-  }
-
-  .history-sidebar {
-    width: 220px;
-    flex-shrink: 0;
-    background: #fff;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    max-height: calc(100vh - 160px);
-    overflow-y: auto;
-  }
-
-  .history-sidebar__title {
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #888;
-    margin-bottom: 12px;
-    padding-left: 8px;
-  }
-
-  .date-tab {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    padding: 10px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.95rem;
-    color: #444;
-    margin-bottom: 4px;
-    transition: background 0.2s, color 0.2s;
-  }
-
-  .date-tab:hover {
-    background: #f5f5f5;
-  }
-
-  .date-tab--active {
-    background: var(--accent-soft);
-    color: var(--accent-dark);
-    font-weight: 600;
-  }
-
-  .history-content {
-    flex-grow: 1;
-  }
-
   .ticket__time {
     font-size: 0.85rem;
     color: #666;
@@ -123,29 +67,6 @@
 
   /* Mobile Media Query Optimization */
   @media (max-width: 768px) {
-    .history-layout {
-      flex-direction: column;
-      gap: 16px;
-    }
-    .history-sidebar {
-      width: 100%;
-      max-height: 140px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      display: flex;
-      flex-direction: row;
-      gap: 8px;
-      padding: 8px;
-    }
-    .history-sidebar__title {
-      display: none;
-    }
-    .date-tab {
-      display: inline-block;
-      width: auto;
-      white-space: nowrap;
-      margin-bottom: 0;
-    }
     .shell__header {
       flex-direction: column;
       align-items: flex-start;
@@ -187,8 +108,6 @@
 <script>
 let activeOrders = [];
 let completedOrders = [];
-let groupedHistory = {}; 
-let selectedHistoryDate = null; 
 let currentView = 'active';
 
 function renderOrders(highlightId) {
@@ -198,15 +117,15 @@ function renderOrders(highlightId) {
   if (currentView === 'active') {
     ordersToRender = activeOrders;
   } else {
-    ordersToRender = groupedHistory[selectedHistoryDate] || [];
+    ordersToRender = completedOrders;
   }
 
   if (ordersToRender.length === 0) {
     container.innerHTML = `
       <div class="empty-state" style="grid-column: 1/-1;">
         <div class="empty-state__icon">🧾</div>
-        <div class="empty-state__title">${currentView === 'active' ? 'No pending orders' : 'No orders on this date'}</div>
-        <p class="text-muted">${currentView === 'active' ? 'New tickets will appear here the moment they\'re placed.' : 'Completed tickets for this day will appear here.'}</p>
+        <div class="empty-state__title">${currentView === 'active' ? 'No pending orders' : "No history for today"}</div>
+        <p class="text-muted">${currentView === 'active' ? 'New tickets will appear here the moment they\'re placed.' : "Completed tickets for today will appear here."}</p>
       </div>`;
     return;
   }
@@ -263,67 +182,10 @@ function renderOrders(highlightId) {
   }
 }
 
-function groupOrdersByDate(orders) {
-  const groups = {};
-  orders.forEach(order => {
-    const dateObj = order.createdAt ? new Date(order.createdAt) : new Date();
-    const dateStr = dateObj.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-    
-    if (!groups[dateStr]) {
-      groups[dateStr] = [];
-    }
-    groups[dateStr].push(order);
-  });
-  return groups;
-}
-
-function renderHistoryInterface() {
-  const wrapper = document.getElementById('dashboardViewWrapper');
-  const dateKeys = Object.keys(groupedHistory);
-
-  if (dateKeys.length === 0) {
-    wrapper.innerHTML = `<div class="grid grid--auto" id="ordersContainer"></div>`;
-    renderOrders();
-    return;
-  }
-
-  if (!selectedHistoryDate || !groupedHistory[selectedHistoryDate]) {
-    selectedHistoryDate = dateKeys[0];
-  }
-
-  const sidebarButtons = dateKeys.map(dateKey => `
-    <button class="date-tab ${dateKey === selectedHistoryDate ? 'date-tab--active' : ''}" data-date="${dateKey}">
-      📅 ${dateKey} (${groupedHistory[dateKey].length})
-    </button>
-  `).join('');
-
-  wrapper.innerHTML = `
-    <div class="history-layout">
-      <div class="history-sidebar">
-        <div class="history-sidebar__title">Select Date</div>
-        ${sidebarButtons}
-      </div>
-      <div class="history-content">
-        <div class="grid grid--auto" id="ordersContainer"></div>
-      </div>
-    </div>
-  `;
-
-  wrapper.querySelectorAll('.date-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      selectedHistoryDate = tab.dataset.date;
-      renderHistoryInterface();
-    });
-  });
-
-  renderOrders();
-}
-
 async function loadActiveOrders() {
   try {
     activeOrders = await apiFetch('/api/orders/active');
     if (currentView === 'active') {
-      document.getElementById('dashboardViewWrapper').innerHTML = `<div class="grid grid--auto" id="ordersContainer"></div>`;
       renderOrders();
     }
   } catch (err) {
@@ -331,11 +193,27 @@ async function loadActiveOrders() {
   }
 }
 
-async function loadCompletedOrders() {
+async function loadTodayCompletedOrders() {
   try {
-    completedOrders = await apiFetch('/api/orders?status=Completed');
-    groupedHistory = groupOrdersByDate(completedOrders);
-    if (currentView === 'completed') renderHistoryInterface();
+    const allCompleted = await apiFetch('/api/orders?status=Completed');
+    
+    // Establish dynamic target timestamps for today's midnight boundaries
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 5, 59, 999);
+
+    // Filters for records created inside the today window
+    completedOrders = allCompleted.filter(order => {
+      if (!order.createdAt) return false;
+      const oDate = new Date(order.createdAt);
+      return oDate >= startOfToday && oDate <= endOfToday;
+    });
+
+    if (currentView === 'completed') {
+      renderOrders();
+    }
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -364,13 +242,12 @@ document.getElementById('toggleHistoryBtn').addEventListener('click', async func
   if (currentView === 'active') {
     currentView = 'completed';
     this.innerText = '📥 View Active';
-    document.getElementById('viewTitle').innerText = 'Order History';
-    await loadCompletedOrders();
+    document.getElementById('viewTitle').innerText = "Today's History";
+    await loadTodayCompletedOrders();
   } else {
     currentView = 'active';
     this.innerText = '📋 View History';
     document.getElementById('viewTitle').innerText = 'Incoming Orders';
-    document.getElementById('dashboardViewWrapper').innerHTML = `<div class="grid grid--auto" id="ordersContainer"></div>`;
     renderOrders();
   }
 });

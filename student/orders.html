@@ -18,18 +18,106 @@
 
   .ticket-rail {
     display: flex;
-    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     gap: 10px;
     padding: 10px 16px;
+    background: var(--ink);
+  }
+
+  .ticket-rail__brand {
+    white-space: nowrap;
   }
 
   .ticket-rail__actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+    gap: 12px;
     align-items: center;
+  }
+
+  /* Profile Avatar and Dropdown UI Panel */
+  .profile-wrap {
+    position: relative;
+    display: inline-block;
+  }
+
+  .profile-btn {
+    background: rgba(250, 247, 240, 0.1);
+    border: 1px solid rgba(250, 247, 240, 0.15);
+    color: var(--paper);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+  }
+
+  .profile-btn:hover {
+    background: rgba(250, 247, 240, 0.2);
+    border-color: var(--accent);
+  }
+
+  .profile-modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .profile-card-popup {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 360px;
+    padding: 28px 24px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+    position: relative;
+    text-align: center;
+  }
+
+  .profile-card-popup__close {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--muted);
+  }
+
+  .profile-card-popup__avatar {
+    width: 60px;
+    height: 60px;
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 16px;
+  }
+
+  .profile-card-popup h3 {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+
+  .profile-card-popup p {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    word-break: break-all;
   }
 
   .shell__header {
@@ -38,6 +126,13 @@
     align-items: flex-end;
     flex-wrap: wrap;
     gap: 12px;
+  }
+
+  @media (max-width: 580px) {
+    .ticket-rail__actions .btn-sm {
+      padding: 6px 8px;
+      font-size: 12px;
+    }
   }
 
   @media (max-width: 480px) {
@@ -55,7 +150,22 @@
   <div class="ticket-rail__actions">
     <a href="dashboard.html" class="btn btn-ghost btn-sm">Menu</a>
     <a href="cart.html" class="btn btn-ghost btn-sm">Cart</a>
-    <a href="login.html" class="btn btn-danger btn-sm" id="logoutLink">Logout</a>
+    
+    <!-- Aligned Profile Widget Anchor Trigger Container -->
+    <div class="profile-wrap">
+      <button class="profile-btn" id="profileModalTrigger" title="View Profile">👤</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Profile View Layout Container -->
+<div class="profile-modal" id="profileOverlayContainer">
+  <div class="profile-card-popup">
+    <button class="profile-card-popup__close" id="profileCloseBtn">&times;</button>
+    <div class="profile-card-popup__avatar">👤</div>
+    <h3 id="displayProfileName">Student Account</h3>
+    <p id="displayProfileEmail">loading-session@college.edu</p>
+    <button class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
   </div>
 </div>
 
@@ -79,6 +189,32 @@ const currentUser = localStorage.getItem('loggedInUserEmail');
 if (!currentUser) {
   window.location.href = 'login.html';
 }
+
+// Map profile fields into view containers
+document.getElementById('displayProfileEmail').textContent = currentUser;
+if (currentUser.includes('@')) {
+  const accountPrefixName = currentUser.split('@')[0];
+  document.getElementById('displayProfileName').textContent = accountPrefixName.charAt(0).toUpperCase() + accountPrefixName.slice(1);
+}
+
+// Modal interactivity listeners
+const profileTrigger = document.getElementById('profileModalTrigger');
+const profileOverlay = document.getElementById('profileOverlayContainer');
+const profileClose = document.getElementById('profileCloseBtn');
+
+profileTrigger.addEventListener('click', () => {
+  profileOverlay.style.display = 'flex';
+});
+
+profileClose.addEventListener('click', () => {
+  profileOverlay.style.display = 'none';
+});
+
+profileOverlay.addEventListener('click', (e) => {
+  if (e.target === profileOverlay) {
+    profileOverlay.style.display = 'none';
+  }
+});
 
 const STATUS_LABEL = {
   Preparing: { text: '🔔 Preparing', cls: 'status-pill--preparing' },
@@ -159,8 +295,9 @@ async function loadOrders() {
   }
 })();
 
-document.getElementById('logoutLink').addEventListener('click', () => {
+document.getElementById('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('loggedInUserEmail');
+  window.location.href = '../index.html';
 });
 
 loadOrders();
