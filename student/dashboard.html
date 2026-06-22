@@ -232,32 +232,40 @@
     gap: 8px;
     margin-bottom: 20px;
     width: 100%;
+    flex-wrap: wrap; /* Prevents horizontal scrolling across entire dashboard */
   }
 
   @media (max-width: 580px) {
+    .ticket-rail {
+      padding: 10px 8px;
+    }
+    .ticket-rail__brand {
+      font-size: 14px;
+    }
+    .ticket-rail__role {
+      display: none; /* Hide 'Student' label to prioritize action buttons space */
+    }
     .ticket-rail__actions {
-      gap: 6px;
+      gap: 4px;
     }
     .ticket-rail__actions .btn-sm {
-      padding: 6px 8px;
+      padding: 6px 6px;
       font-size: 12px;
+      letter-spacing: -0.2px;
     }
   }
 
   @media (max-width: 480px) {
     .category-tabs {
-      overflow-x: auto;
-      white-space: nowrap;
-      padding-bottom: 10px;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .category-tabs::-webkit-scrollbar {
-      display: none;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr); /* Clean 3-column button grid system */
+      gap: 6px;
     }
     .category-tab {
-      padding: 8px 16px;
-      flex: 0 0 auto;
+      padding: 8px 4px;
+      font-size: 12px;
+      text-align: center;
+      width: 100%;
     }
     .shell__header {
       margin-bottom: 12px;
@@ -270,10 +278,9 @@
 <div class="ticket-rail">
   <div class="ticket-rail__brand">🍽️ Cafteri <span class="ticket-rail__role">Student</span></div>
   <div class="ticket-rail__actions">
-    <button id="toggleFavsViewBtn" class="btn btn-ghost btn-sm">❤️ Fav </button>
+    <button id="toggleFavsViewBtn" class="btn btn-ghost btn-sm"> ❤️ </button>
     <div class="cart-fab-wrap">
-      <a href="cart.html" class="btn btn-ghost btn-sm">Cart</a>
-      <span id="cartBadge" class="cart-badge">0</span>
+<a href="cart.html" class="btn btn-ghost btn-sm" title="Cart" style="filter: brightness(0) invert(1);">🛒</a>      <span id="cartBadge" class="cart-badge">0</span>
     </div>
     <a href="orders.html" class="btn btn-ghost btn-sm">My Orders</a>
     
@@ -289,7 +296,7 @@
     <div class="profile-card-popup__avatar">👤</div>
     <h3 id="displayProfileName">Student Account</h3>
     <p id="displayProfileEmail">loading-session@college.edu</p>
-    <button class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
+    <a href="login.html" class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
   </div>
 </div>
 
@@ -480,9 +487,9 @@ document.getElementById('toggleFavsViewBtn').addEventListener('click', () => {
   showFavoritesOnly = !showFavoritesOnly;
   const btn = document.getElementById('toggleFavsViewBtn');
   if (showFavoritesOnly) {
-    btn.innerHTML = '🤍 All';
+    btn.innerHTML = ' 🤍';
   } else {
-    btn.innerHTML = '❤️ Fav ';
+    btn.innerHTML = ' ❤️ ';
   }
   renderMenu();
 });
