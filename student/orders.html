@@ -164,7 +164,7 @@
     <div class="profile-card-popup__avatar">👤</div>
     <h3 id="displayProfileName">Student Account</h3>
     <p id="displayProfileEmail">loading-session@college.edu</p>
-    <a href="login.html" class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
+    <button class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
   </div>
 </div>
 
@@ -296,7 +296,7 @@ async function loadOrders() {
 
 document.getElementById('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('loggedInUserEmail');
-  window.location.href = '../index.html';
+  window.location.href = 'login.html';
 });
 
 loadOrders();
