@@ -12,6 +12,27 @@
     --accent-soft: rgba(217, 98, 43, 0.12);
   }
 
+  /* Core Responsive Overrides */
+  body {
+    overflow-x: hidden;
+  }
+
+  .ticket-rail {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+  }
+
+  .ticket-rail__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
   .ticket--new {
     animation: ticket-arrive 0.4s ease;
   }
@@ -29,11 +50,12 @@
     margin-top: 14px;
   }
 
-  /* Added subtle style adjustment for header flex layout */
   .shell__header {
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
   }
 
   /* --- New Styles for Date-wise History View --- */
@@ -98,6 +120,41 @@
     margin-top: 4px;
     font-weight: normal;
   }
+
+  /* Mobile Media Query Optimization */
+  @media (max-width: 768px) {
+    .history-layout {
+      flex-direction: column;
+      gap: 16px;
+    }
+    .history-sidebar {
+      width: 100%;
+      max-height: 140px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      padding: 8px;
+    }
+    .history-sidebar__title {
+      display: none;
+    }
+    .date-tab {
+      display: inline-block;
+      width: auto;
+      white-space: nowrap;
+      margin-bottom: 0;
+    }
+    .shell__header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .shell__header .btn {
+      width: 100%;
+      margin-top: 8px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -130,14 +187,13 @@
 <script>
 let activeOrders = [];
 let completedOrders = [];
-let groupedHistory = {}; // Key: Date string, Value: Array of orders
+let groupedHistory = {}; 
 let selectedHistoryDate = null; 
-let currentView = 'active'; // can be 'active' or 'completed'
+let currentView = 'active';
 
 function renderOrders(highlightId) {
   const container = document.getElementById('ordersContainer');
   
-  // Decide which dataset to loop through
   let ordersToRender = [];
   if (currentView === 'active') {
     ordersToRender = activeOrders;
@@ -173,7 +229,6 @@ function renderOrders(highlightId) {
     if (isReady) statusLabel = `✅ Ready`;
     if (isCompleted) statusLabel = `📦 Done`;
 
-    // Process order time if createdAt exists (fallback to empty if not present)
     let orderTimeStr = '';
     if (order.createdAt) {
       const orderDate = new Date(order.createdAt);
@@ -208,11 +263,9 @@ function renderOrders(highlightId) {
   }
 }
 
-// Group history records by their locale date string
 function groupOrdersByDate(orders) {
   const groups = {};
   orders.forEach(order => {
-    // Falls back to current date if 'createdAt' property is missing from backend
     const dateObj = order.createdAt ? new Date(order.createdAt) : new Date();
     const dateStr = dateObj.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     
@@ -224,7 +277,6 @@ function groupOrdersByDate(orders) {
   return groups;
 }
 
-// Renders layout adjustments to hold the Date Sidebar and Grid together
 function renderHistoryInterface() {
   const wrapper = document.getElementById('dashboardViewWrapper');
   const dateKeys = Object.keys(groupedHistory);
@@ -235,7 +287,6 @@ function renderHistoryInterface() {
     return;
   }
 
-  // Pre-select the latest date if none chosen
   if (!selectedHistoryDate || !groupedHistory[selectedHistoryDate]) {
     selectedHistoryDate = dateKeys[0];
   }
@@ -258,7 +309,6 @@ function renderHistoryInterface() {
     </div>
   `;
 
-  // Add click handlers to sidebar date tabs
   wrapper.querySelectorAll('.date-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       selectedHistoryDate = tab.dataset.date;
@@ -310,7 +360,6 @@ async function setStatus(orderId, status) {
   }
 }
 
-// History Toggle logic
 document.getElementById('toggleHistoryBtn').addEventListener('click', async function() {
   if (currentView === 'active') {
     currentView = 'completed';
@@ -355,6 +404,5 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 
 loadActiveOrders();
 </script>
-
 </body>
 </html>

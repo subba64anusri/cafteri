@@ -12,15 +12,34 @@
     --accent-soft: rgba(31, 138, 87, 0.12);
   }
 
+  body {
+    overflow-x: hidden;
+  }
+
+  .ticket-rail {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+  }
+
+  .ticket-rail__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+
   .food-card {
     padding: 22px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    position: relative; /* Position heart symbol */
+    position: relative;
   }
 
-  /* Style for the heart button */
   .fav-btn {
     position: absolute;
     top: 15px;
@@ -37,7 +56,7 @@
 
   .food-card h3 {
     font-size: 17px;
-    padding-right: 25px; /* Prevent text overlapping the heart */
+    padding-right: 25px;
   }
 
   .food-card__price {
@@ -118,6 +137,18 @@
   .grid-loading {
     height: 150px;
   }
+
+  @media (max-width: 480px) {
+    .category-tabs {
+      display: flex;
+      overflow-x: auto;
+      white-space: nowrap;
+      padding-bottom: 6px;
+    }
+    .category-tab {
+      padding: 6px 12px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -126,7 +157,6 @@
   <div class="ticket-rail__brand">🍽️ Cafteri <span class="ticket-rail__role">Student</span></div>
   <div class="ticket-rail__actions">
     <button id="toggleFavsViewBtn" class="btn btn-ghost btn-sm">❤️ Favorites </button>
-    
     <div class="cart-fab-wrap">
       <a href="cart.html" class="btn btn-ghost btn-sm">Cart</a>
       <span id="cartBadge" class="cart-badge">0</span>
@@ -166,17 +196,14 @@ function getCartKey() {
   return `cart_${currentUser}`;
 }
 
-// Added key for user favorites
 function getFavsKey() {
   return `favs_${currentUser}`;
 }
 
 let cart = JSON.parse(localStorage.getItem(getCartKey()) || '[]');
-// Added favorites storage state grouped by categories
 let favorites = JSON.parse(localStorage.getItem(getFavsKey()) || '{}');
 let currentCategory = 'Tiffins';
 let menuCache = [];
-// State tracking whether favorites toggle filtering is active
 let showFavoritesOnly = false;
 
 function renderTabs() {
@@ -216,7 +243,6 @@ function stockLabel(item) {
 function renderMenu() {
   const grid = document.getElementById('menuGrid');
 
-  // Filter cache locally if Favorites Only mode is currently toggled on
   let itemsToRender = menuCache;
   if (showFavoritesOnly) {
     const currentFavs = favorites[currentCategory] || [];
@@ -233,7 +259,6 @@ function renderMenu() {
     return;
   }
 
-  // Ensure current category bucket exists in favorites
   if (!favorites[currentCategory]) {
     favorites[currentCategory] = [];
   }
@@ -245,7 +270,6 @@ function renderMenu() {
     const outOfStock = item.quantity <= 0;
     const atMax = quantity >= item.quantity;
     
-    // Check if item exists in favorites array for the current category
     const isFav = favorites[currentCategory].includes(item._id);
 
     return `
@@ -278,13 +302,11 @@ function renderMenu() {
     btn.addEventListener('click', () => changeQuantity(btn.dataset.change, Number(btn.dataset.delta)));
   });
   
-  // Added event listener mapping for favorites logic
   grid.querySelectorAll('[data-fav]').forEach(btn => {
     btn.addEventListener('click', () => toggleFavorite(btn.dataset.fav));
   });
 }
 
-// Added logic function to add/remove elements from favorites list category-wise
 function toggleFavorite(id) {
   if (!favorites[currentCategory]) {
     favorites[currentCategory] = [];
@@ -301,7 +323,6 @@ function toggleFavorite(id) {
   renderMenu();
 }
 
-// Handler logic for the toolbar favorite filter toggle button
 document.getElementById('toggleFavsViewBtn').addEventListener('click', () => {
   showFavoritesOnly = !showFavoritesOnly;
   const btn = document.getElementById('toggleFavsViewBtn');
@@ -370,8 +391,6 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
   window.location.href = 'login.html';
 });
 
-// Live menu updates: if admin adds/edits/removes an item or stock changes
-// from someone else's order, refresh in place without a page reload.
 (async () => {
   const socket = await connectCanteenSocket({ role: 'student', email: currentUser });
   if (socket) {
@@ -383,6 +402,5 @@ renderTabs();
 updateCartUI();
 fetchMenu(currentCategory);
 </script>
-
 </body>
 </html>

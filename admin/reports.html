@@ -13,6 +13,40 @@
     --accent-soft: rgba(43, 95, 217, 0.12);
   }
 
+  body {
+    overflow-x: hidden;
+  }
+
+  .ticket-rail {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+  }
+
+  .ticket-rail__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .shell__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
   .layout-split {
     display: grid;
     grid-template-columns: 2fr 1fr;
@@ -20,8 +54,82 @@
     align-items: start;
   }
 
+  .history-layout {
+    display: flex;
+    gap: 24px;
+    margin-top: 20px;
+  }
+
+  .history-sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    max-height: calc(100vh - 160px);
+    overflow-y: auto;
+  }
+
+  .history-sidebar__title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 12px;
+    padding-left: 8px;
+  }
+
+  .date-tab {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: #444;
+    margin-bottom: 4px;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .date-tab:hover {
+    background: #f5f5f5;
+  }
+
+  .date-tab--active {
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    font-weight: 600;
+  }
+
+  .history-content {
+    flex-grow: 1;
+  }
+
   @media (max-width: 860px) {
     .layout-split { grid-template-columns: 1fr; }
+    .history-layout { flex-direction: column; gap: 16px; }
+    .history-sidebar {
+      width: 100%;
+      max-height: 140px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      padding: 8px;
+    }
+    .history-sidebar__title { display: none; }
+    .date-tab { display: inline-block; width: auto; white-space: nowrap; margin-bottom: 0; }
+  }
+
+  @media (max-width: 480px) {
+    .shell__header { flex-direction: column; align-items: flex-start; }
+    .header-actions { width: 100%; }
+    .header-actions .btn { flex-grow: 1; text-align: center; }
   }
 
   .panel {
@@ -46,7 +154,6 @@
     margin: 12px auto 0;
   }
 
-  /* Image placeholder used exclusively during PDF printing */
   #printChartImage {
     display: none;
     max-width: 100%;
@@ -54,21 +161,20 @@
     margin: 12px auto 0;
   }
 
-  /* CSS rules optimized for clean PDF Layout Generation */
   @media print {
     body {
       background: #ffffff !important;
       color: #000000 !important;
     }
-    .ticket-rail, #generatePdfBtn {
-      display: none !important; /* Hide dashboard UI wrappers from PDF */
+    .ticket-rail, #generatePdfBtn, #toggleHistoryBtn, .history-sidebar {
+      display: none !important;
     }
     .shell {
       padding: 0 !important;
       margin: 0 !important;
     }
-    .layout-split {
-      display: block !important; /* Stack elements naturally on PDF page grid */
+    .layout-split, .history-layout {
+      display: block !important;
     }
     .card {
       border: none !important;
@@ -77,11 +183,9 @@
       margin-bottom: 30px;
       page-break-inside: avoid;
     }
-    /* Hide the live canvas because raw canvases often disappear or blank out when exporting to PDF */
     .chart-container canvas {
       display: none !important;
     }
-    /* Display the captured static image version inside the PDF instead */
     #printChartImage {
       display: block !important;
     }
@@ -98,36 +202,42 @@
 </div>
 
 <div class="shell">
-  <div class="shell__header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+  <div class="shell__header">
     <div>
       <div class="eyebrow">Performance</div>
-      <h1>Sales Reports</h1>
+      <h1 id="viewTitle">Sales Reports</h1>
     </div>
-    <button id="generatePdfBtn" class="btn btn-primary btn-sm">📄 Generate PDF Report</button>
+    <div class="header-actions">
+      <button id="toggleHistoryBtn" class="btn btn-outline btn-sm">📋 View History</button>
+      <button id="generatePdfBtn" class="btn btn-primary btn-sm">📄 Generate PDF Report</button>
+    </div>
   </div>
 
-  <div class="layout-split">
-    <div class="card card--accent panel">
-      <h2>Item breakdown</h2>
-      <div class="panel__sub">Units sold and revenue, across all orders</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Food item</th>
-            <th>Units sold</th>
-            <th>Revenue</th>
-          </tr>
-        </thead>
-        <tbody id="reportTableBody"></tbody>
-      </table>
-    </div>
+  <div id="reportViewWrapper" style="margin-top: 20px;">
+    <!-- Present day view container default layout -->
+    <div class="layout-split" id="liveReportView">
+      <div class="card card--accent panel">
+        <h2>Item breakdown</h2>
+        <div class="panel__sub">Units sold and revenue for today</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Food item</th>
+              <th>Units sold</th>
+              <th>Revenue</th>
+            </tr>
+          </thead>
+          <tbody id="reportTableBody"></tbody>
+        </table>
+      </div>
 
-    <div class="card card--accent panel" style="text-align:center;">
-      <h2>Revenue by category</h2>
-      <div class="panel__sub">Where the money's coming from</div>
-      <div class="chart-container">
-        <canvas id="revenueChart"></canvas>
-        <img id="printChartImage" alt="Revenue Chart Breakdown">
+      <div class="card card--accent panel" style="text-align:center;">
+        <h2>Revenue by category</h2>
+        <div class="panel__sub">Where the money's coming from</div>
+        <div class="chart-container">
+          <canvas id="revenueChart"></canvas>
+          <img id="printChartImage" alt="Revenue Chart Breakdown">
+        </div>
       </div>
     </div>
   </div>
@@ -137,9 +247,14 @@
 <script src="../public/js/shared.js"></script>
 <script>
 let salesChart = null;
+let currentView = 'present'; // Can be 'present' or 'history'
+let historyData = {}; // Stores day-by-day aggregated metric objects
+let selectedHistoryDate = null;
 
 function renderChart(categories) {
-  const ctx = document.getElementById('revenueChart').getContext('2d');
+  const canvas = document.getElementById('revenueChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
   if (salesChart) salesChart.destroy();
 
   if (categories.length === 0) {
@@ -158,10 +273,7 @@ function renderChart(categories) {
     },
     options: {
       responsive: true,
-      animation: {
-        // Keeps the chart rendering crisp immediately upon request snapshots
-        duration: 0
-      },
+      animation: { duration: 0 },
       plugins: {
         legend: {
           position: 'bottom',
@@ -172,14 +284,45 @@ function renderChart(categories) {
   });
 }
 
-async function buildReport() {
+// Builds the standard today's metrics view
+async function buildPresentReport() {
   try {
-    const { items, categories } = await apiFetch('/api/reports/items');
+    // Fetch completed raw orders directly to perfectly isolate today's sales
+    const orders = await apiFetch('/api/orders?status=Completed');
+    const todayStr = new Date().toDateString();
+    
+    const todayItemsMap = {};
+    const todayCategoriesMap = {};
+
+    orders.forEach(order => {
+      const orderDateStr = order.createdAt ? new Date(order.createdAt).toDateString() : new Date().toDateString();
+      if (orderDateStr !== todayStr) return; // Only allow current calendar day entries
+
+      order.items.forEach(item => {
+        // Build items breakdown tracking data
+        if (!todayItemsMap[item.name]) {
+          todayItemsMap[item.name] = { name: item.name, units: 0, revenue: 0 };
+        }
+        todayItemsMap[item.name].units += item.cartQuantity;
+        todayItemsMap[item.name].revenue += item.price * item.cartQuantity;
+
+        // Build category tracking data
+        const category = item.category || 'Uncategorized';
+        if (!todayCategoriesMap[category]) {
+          todayCategoriesMap[category] = { category: category, revenue: 0 };
+        }
+        todayCategoriesMap[category].revenue += item.price * item.cartQuantity;
+      });
+    });
+
+    const cleanItems = Object.values(todayItemsMap);
+    const presentCategories = Object.values(todayCategoriesMap);
 
     const tbody = document.getElementById('reportTableBody');
+    if (!tbody) return;
 
-    if (items.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-state__icon">📊</div><div class="empty-state__title">No sales yet</div><p class="text-muted">Numbers will show up here as orders come in.</p></div></td></tr>`;
+    if (cleanItems.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-state__icon">📊</div><div class="empty-state__title">No sales yet today</div><p class="text-muted">Numbers will show up here as live orders roll in.</p></div></td></tr>`;
       renderChart([]);
       return;
     }
@@ -187,7 +330,7 @@ async function buildReport() {
     let overallUnits = 0;
     let overallRevenue = 0;
 
-    tbody.innerHTML = items.map(item => {
+    tbody.innerHTML = cleanItems.map(item => {
       overallUnits += item.units;
       overallRevenue += item.revenue;
       return `
@@ -203,36 +346,175 @@ async function buildReport() {
         <td>${formatRupees(overallRevenue)}</td>
       </tr>`;
 
-    renderChart(categories);
+    renderChart(presentCategories);
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
-// Logic to generate the PDF containing real-time reports and canvas chart
+// Groups and processes orders backward in chronological order day by day
+function computeHistoryGroups(orders) {
+  const groups = {};
+  orders.forEach(order => {
+    if (order.status !== 'Completed') return;
+    const dateObj = order.createdAt ? new Date(order.createdAt) : new Date();
+    const dateStr = dateObj.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    
+    if (!groups[dateStr]) {
+      groups[dateStr] = { categories: {}, totalRevenue: 0 };
+    }
+
+    order.items.forEach(item => {
+      const category = item.category || 'Uncategorized';
+      const itemRevenue = item.price * item.cartQuantity;
+
+      if (!groups[dateStr].categories[category]) {
+        groups[dateStr].categories[category] = { units: 0, revenue: 0 };
+      }
+      groups[dateStr].categories[category].units += item.cartQuantity;
+      groups[dateStr].categories[category].revenue += itemRevenue;
+      groups[dateStr].totalRevenue += itemRevenue;
+    });
+  });
+  return groups;
+}
+
+function renderHistoryInterface() {
+  const wrapper = document.getElementById('reportViewWrapper');
+  const dateKeys = Object.keys(historyData).sort((a, b) => new Date(b) - new Date(a));
+
+  if (dateKeys.length === 0) {
+    wrapper.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state__icon">📊</div>
+        <div class="empty-state__title">No history data available</div>
+        <p class="text-muted">Completed past statements will render here.</p>
+      </div>`;
+    return;
+  }
+
+  if (!selectedHistoryDate || !historyData[selectedHistoryDate]) {
+    selectedHistoryDate = dateKeys[0];
+  }
+
+  const sidebarButtons = dateKeys.map(dateKey => `
+    <button class="date-tab ${dateKey === selectedHistoryDate ? 'date-tab--active' : ''}" data-date="${dateKey}">
+      📅 ${dateKey}
+    </button>
+  `).join('');
+
+  const currentDayData = historyData[selectedHistoryDate];
+  const categoryRows = Object.keys(currentDayData.categories).map(catName => `
+    <tr>
+      <td><strong>${escapeHtml(catName)}</strong></td>
+      <td class="qty-cell">${currentDayData.categories[catName].units} units</td>
+      <td class="price-cell">${formatRupees(currentDayData.categories[catName].revenue)}</td>
+    </tr>
+  `).join('');
+
+  wrapper.innerHTML = `
+    <div class="history-layout">
+      <div class="history-sidebar">
+        <div class="history-sidebar__title">Select History Date</div>
+        ${sidebarButtons}
+      </div>
+      <div class="history-content">
+        <div class="card card--accent panel">
+          <h2>Category Performance Statement</h2>
+          <div class="panel__sub">Breakdown for ${selectedHistoryDate}</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Food Category</th>
+                <th>Units Sold</th>
+                <th>Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${categoryRows}
+              <tr class="row--total">
+                <td>Whole Total Revenue</td>
+                <td></td>
+                <td class="price-cell">${formatRupees(currentDayData.totalRevenue)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  wrapper.querySelectorAll('.date-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      selectedHistoryDate = tab.dataset.date;
+      renderHistoryInterface();
+    });
+  });
+}
+
+async function loadHistoryDataset() {
+  try {
+    const orders = await apiFetch('/api/orders?status=Completed');
+    historyData = computeHistoryGroups(orders);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// Top navbar structural interface toggle event workflow handler mapping
+document.getElementById('toggleHistoryBtn').addEventListener('click', async function() {
+  const wrapper = document.getElementById('reportViewWrapper');
+  
+  if (currentView === 'present') {
+    currentView = 'history';
+    this.innerText = '📥 View Today\'s Live';
+    document.getElementById('viewTitle').innerText = 'History Statement Ledger';
+    await loadHistoryDataset();
+    renderHistoryInterface();
+  } else {
+    currentView = 'present';
+    this.innerText = '📋 View History';
+    document.getElementById('viewTitle').innerText = 'Sales Reports';
+    wrapper.innerHTML = `
+      <div class="layout-split" id="liveReportView">
+        <div class="card card--accent panel">
+          <h2>Item breakdown</h2>
+          <div class="panel__sub">Units sold and revenue for today</div>
+          <table>
+            <thead><tr><th>Food item</th><th>Units sold</th><th>Revenue</th></tr></thead>
+            <tbody id="reportTableBody"></tbody>
+          </table>
+        </div>
+        <div class="card card--accent panel" style="text-align:center;">
+          <h2>Revenue by category</h2>
+          <div class="panel__sub">Where the money's coming from</div>
+          <div class="chart-container"><canvas id="revenueChart"></canvas><img id="printChartImage" alt="Revenue Chart Breakdown"></div>
+        </div>
+      </div>`;
+    await buildPresentReport();
+  }
+});
+
+// PDF statement generator trigger event listener pipeline ruleset mapper
 document.getElementById('generatePdfBtn').addEventListener('click', () => {
   const canvas = document.getElementById('revenueChart');
   const printImg = document.getElementById('printChartImage');
   
-  if (canvas && salesChart) {
-    // Convert the live chart to an image so the browser print engine maps it cleanly into the PDF file context
+  if (currentView === 'present' && canvas && salesChart) {
     printImg.src = canvas.toDataURL('image/png');
   }
-
-  // Triggers the download/save system dialog directly as a PDF output stream
   window.print();
 });
 
 (async () => {
   const socket = await connectCanteenSocket({ role: 'admin' });
   if (socket) {
-    socket.on('order:new', buildReport);
-    socket.on('order:status', buildReport);
+    socket.on('order:new', () => { if(currentView === 'present') buildPresentReport(); });
+    socket.on('order:status', () => { if(currentView === 'present') buildPresentReport(); });
   }
 })();
 
-buildReport();
+buildPresentReport();
 </script>
-
 </body>
 </html>
