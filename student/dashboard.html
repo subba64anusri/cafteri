@@ -128,20 +128,6 @@
     position: relative;
   }
 
-  .fav-btn {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: transparent;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-    z-index: 10;
-    user-select: none;
-  }
-
   .food-card h3 {
     font-size: 17px;
     padding-right: 25px;
@@ -276,11 +262,11 @@
 <body>
 
 <div class="ticket-rail">
-  <div class="ticket-rail__brand">🍽️ Cafteri <span class="ticket-rail__role">Student</span></div>
+  <div class="ticket-rail__brand">🍽️ Cafteri <span class="ticket-rail__role">Student/Faculty</span></div>
   <div class="ticket-rail__actions">
-    <button id="toggleFavsViewBtn" class="btn btn-ghost btn-sm"> ❤️ </button>
     <div class="cart-fab-wrap">
-<a href="cart.html" class="btn btn-ghost btn-sm" title="Cart" style="filter: brightness(0) invert(1);">🛒</a>      <span id="cartBadge" class="cart-badge">0</span>
+      <a href="cart.html" class="btn btn-ghost btn-sm" title="Cart" style="filter: brightness(0) invert(1);">🛒</a>
+      <span id="cartBadge" class="cart-badge">0</span>
     </div>
     <a href="orders.html" class="btn btn-ghost btn-sm">My Orders</a>
     
@@ -296,7 +282,7 @@
     <div class="profile-card-popup__avatar">👤</div>
     <h3 id="displayProfileName">Student Account</h3>
     <p id="displayProfileEmail">loading-session@college.edu</p>
-    <a href="login.html" class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
+    <button class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
   </div>
 </div>
 
@@ -356,15 +342,9 @@ function getCartKey() {
   return `cart_${currentUser}`;
 }
 
-function getFavsKey() {
-  return `favs_${currentUser}`;
-}
-
 let cart = JSON.parse(localStorage.getItem(getCartKey()) || '[]');
-let favorites = JSON.parse(localStorage.getItem(getFavsKey()) || '{}');
 let currentCategory = 'Tiffins';
 let menuCache = [];
-let showFavoritesOnly = false;
 
 function renderTabs() {
   const tabs = document.getElementById('categoryTabs');
@@ -402,12 +382,7 @@ function stockLabel(item) {
 
 function renderMenu() {
   const grid = document.getElementById('menuGrid');
-
   let itemsToRender = menuCache;
-  if (showFavoritesOnly) {
-    const currentFavs = favorites[currentCategory] || [];
-    itemsToRender = menuCache.filter(item => currentFavs.includes(item._id));
-  }
 
   if (itemsToRender.length === 0) {
     grid.innerHTML = `
@@ -419,25 +394,15 @@ function renderMenu() {
     return;
   }
 
-  if (!favorites[currentCategory]) {
-    favorites[currentCategory] = [];
-  }
-
   grid.innerHTML = itemsToRender.map(item => {
     const cartItem = cart.find(i => i._id === item._id);
     const quantity = cartItem ? cartItem.cartQuantity : 0;
     const stock = stockLabel(item);
     const outOfStock = item.quantity <= 0;
     const atMax = quantity >= item.quantity;
-    
-    const isFav = favorites[currentCategory].includes(item._id);
 
     return `
       <div class="card card--accent food-card" id="card-${item._id}">
-        <button class="fav-btn" data-fav="${item._id}">
-          ${isFav ? '❤️' : '🤍'}
-        </button>
-
         <h3>${escapeHtml(item.name)}</h3>
         <div class="food-card__price">${formatRupees(item.price)}</div>
         <div class="food-card__stock ${stock.cls}">${stock.text}</div>
@@ -461,38 +426,7 @@ function renderMenu() {
   grid.querySelectorAll('[data-change]').forEach(btn => {
     btn.addEventListener('click', () => changeQuantity(btn.dataset.change, Number(btn.dataset.delta)));
   });
-  
-  grid.querySelectorAll('[data-fav]').forEach(btn => {
-    btn.addEventListener('click', () => toggleFavorite(btn.dataset.fav));
-  });
 }
-
-function toggleFavorite(id) {
-  if (!favorites[currentCategory]) {
-    favorites[currentCategory] = [];
-  }
-
-  const index = favorites[currentCategory].indexOf(id);
-  if (index > -1) {
-    favorites[currentCategory].splice(index, 1);
-  } else {
-    favorites[currentCategory].push(id);
-  }
-
-  localStorage.setItem(getFavsKey(), JSON.stringify(favorites));
-  renderMenu();
-}
-
-document.getElementById('toggleFavsViewBtn').addEventListener('click', () => {
-  showFavoritesOnly = !showFavoritesOnly;
-  const btn = document.getElementById('toggleFavsViewBtn');
-  if (showFavoritesOnly) {
-    btn.innerHTML = ' 🤍';
-  } else {
-    btn.innerHTML = ' ❤️ ';
-  }
-  renderMenu();
-});
 
 async function fetchMenu(category) {
   document.getElementById('menuGrid').innerHTML = `
@@ -548,8 +482,8 @@ function changeQuantity(id, delta) {
 
 document.getElementById('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('loggedInUserEmail');
-  // Dynamic navigation routing handling fallback mechanism for strict mobile web containers
-  window.location.replace('../index.html');
+  // Fixed mobile web redirection compatibility fallback
+  window.location.href = '../index.html';
 });
 
 (async () => {
