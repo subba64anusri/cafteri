@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kitchen · Canteen OS</title>
+<title>Kitchen · Cafteri</title>
 <link rel="stylesheet" href="../public/css/canteen.css">
 <style>
   :root {
@@ -28,14 +28,83 @@
   .ticket__body .btn {
     margin-top: 14px;
   }
+
+  /* Added subtle style adjustment for header flex layout */
+  .shell__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  /* --- New Styles for Date-wise History View --- */
+  .history-layout {
+    display: flex;
+    gap: 24px;
+    margin-top: 20px;
+  }
+
+  .history-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    max-height: calc(100vh - 160px);
+    overflow-y: auto;
+  }
+
+  .history-sidebar__title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 12px;
+    padding-left: 8px;
+  }
+
+  .date-tab {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: #444;
+    margin-bottom: 4px;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .date-tab:hover {
+    background: #f5f5f5;
+  }
+
+  .date-tab--active {
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    font-weight: 600;
+  }
+
+  .history-content {
+    flex-grow: 1;
+  }
+
+  .ticket__time {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 4px;
+    font-weight: normal;
+  }
 </style>
 </head>
 <body>
 
 <div class="ticket-rail">
-  <div class="ticket-rail__brand">👨‍🍳 Canteen OS <span class="ticket-rail__role">Chef</span></div>
+  <div class="ticket-rail__brand">👨‍🍳 Cafteri <span class="ticket-rail__role">Chef</span></div>
   <div class="ticket-rail__actions">
-    <span class="live-dot is-offline"><span class="live-dot__label">Connecting…</span></span>
     <button class="btn btn-danger btn-sm" id="logoutBtn">Logout</button>
   </div>
 </div>
@@ -44,12 +113,15 @@
   <div class="shell__header">
     <div>
       <div class="eyebrow">Kitchen pass</div>
-      <h1>Incoming Orders</h1>
+      <h1 id="viewTitle">Incoming Orders</h1>
     </div>
+    <button class="btn btn-outline btn-sm" id="toggleHistoryBtn">📋 View History</button>
   </div>
 
-  <div class="grid grid--auto" id="ordersContainer">
-    <div class="card skeleton" style="height: 160px;"></div>
+  <div id="dashboardViewWrapper" style="margin-top: 20px;">
+    <div class="grid grid--auto" id="ordersContainer">
+      <div class="card skeleton" style="height: 160px;"></div>
+    </div>
   </div>
 </div>
 
@@ -57,59 +129,163 @@
 <script src="../public/js/shared.js"></script>
 <script>
 let activeOrders = [];
+let completedOrders = [];
+let groupedHistory = {}; // Key: Date string, Value: Array of orders
+let selectedHistoryDate = null; 
+let currentView = 'active'; // can be 'active' or 'completed'
 
 function renderOrders(highlightId) {
   const container = document.getElementById('ordersContainer');
+  
+  // Decide which dataset to loop through
+  let ordersToRender = [];
+  if (currentView === 'active') {
+    ordersToRender = activeOrders;
+  } else {
+    ordersToRender = groupedHistory[selectedHistoryDate] || [];
+  }
 
-  if (activeOrders.length === 0) {
+  if (ordersToRender.length === 0) {
     container.innerHTML = `
       <div class="empty-state" style="grid-column: 1/-1;">
         <div class="empty-state__icon">🧾</div>
-        <div class="empty-state__title">No pending orders</div>
-        <p class="text-muted">New tickets will appear here the moment they're placed.</p>
+        <div class="empty-state__title">${currentView === 'active' ? 'No pending orders' : 'No orders on this date'}</div>
+        <p class="text-muted">${currentView === 'active' ? 'New tickets will appear here the moment they\'re placed.' : 'Completed tickets for this day will appear here.'}</p>
       </div>`;
     return;
   }
 
-  container.innerHTML = activeOrders.map(order => {
+  container.innerHTML = ordersToRender.map(order => {
     const itemsList = order.items.map(i =>
       `${escapeHtml(i.name)} <span class="qty">×${i.cartQuantity}</span>`
     ).join('<br>');
     const isReady = order.status === 'Ready';
+    const isCompleted = order.status === 'Completed';
+
+    let actionButton = '';
+    if (!isCompleted) {
+      actionButton = isReady
+        ? `<button class="btn btn-outline btn-block" data-complete="${order._id}">Mark picked up</button>`
+        : `<button class="btn btn-primary btn-block" data-ready="${order._id}">Mark ready ✔</button>`;
+    }
+
+    let statusLabel = `🔔 Preparing`;
+    if (isReady) statusLabel = `✅ Ready`;
+    if (isCompleted) statusLabel = `📦 Done`;
+
+    // Process order time if createdAt exists (fallback to empty if not present)
+    let orderTimeStr = '';
+    if (order.createdAt) {
+      const orderDate = new Date(order.createdAt);
+      orderTimeStr = orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
 
     return `
       <div class="ticket ${order._id === highlightId ? 'ticket--new' : ''}">
         <div class="ticket__head">
           <div class="ticket__token">
             #${order.token}
-            <span class="ticket__token-label">Token</span>
+            <div class="ticket__time">${orderTimeStr}</div>
           </div>
-          <span class="status-pill ${isReady ? 'status-pill--ready' : 'status-pill--preparing'}">
-            ${isReady ? '✅ Ready' : '🔔 Preparing'}
+          <span class="status-pill ${isReady ? 'status-pill--ready' : (isCompleted ? 'status-pill--ready' : 'status-pill--preparing')}">
+            ${statusLabel}
           </span>
         </div>
         <div class="ticket__body">
           <div class="ticket__items">${itemsList}</div>
-          ${isReady
-            ? `<button class="btn btn-outline btn-block" data-complete="${order._id}">Mark picked up</button>`
-            : `<button class="btn btn-primary btn-block" data-ready="${order._id}">Mark ready ✔</button>`
-          }
+          ${actionButton}
         </div>
       </div>`;
   }).join('');
 
-  container.querySelectorAll('[data-ready]').forEach(btn => {
-    btn.addEventListener('click', () => setStatus(btn.dataset.ready, 'Ready'));
+  if (currentView === 'active') {
+    container.querySelectorAll('[data-ready]').forEach(btn => {
+      btn.addEventListener('click', () => setStatus(btn.dataset.ready, 'Ready'));
+    });
+    container.querySelectorAll('[data-complete]').forEach(btn => {
+      btn.addEventListener('click', () => setStatus(btn.dataset.complete, 'Completed'));
+    });
+  }
+}
+
+// Group history records by their locale date string
+function groupOrdersByDate(orders) {
+  const groups = {};
+  orders.forEach(order => {
+    // Falls back to current date if 'createdAt' property is missing from backend
+    const dateObj = order.createdAt ? new Date(order.createdAt) : new Date();
+    const dateStr = dateObj.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    
+    if (!groups[dateStr]) {
+      groups[dateStr] = [];
+    }
+    groups[dateStr].push(order);
   });
-  container.querySelectorAll('[data-complete]').forEach(btn => {
-    btn.addEventListener('click', () => setStatus(btn.dataset.complete, 'Completed'));
+  return groups;
+}
+
+// Renders layout adjustments to hold the Date Sidebar and Grid together
+function renderHistoryInterface() {
+  const wrapper = document.getElementById('dashboardViewWrapper');
+  const dateKeys = Object.keys(groupedHistory);
+
+  if (dateKeys.length === 0) {
+    wrapper.innerHTML = `<div class="grid grid--auto" id="ordersContainer"></div>`;
+    renderOrders();
+    return;
+  }
+
+  // Pre-select the latest date if none chosen
+  if (!selectedHistoryDate || !groupedHistory[selectedHistoryDate]) {
+    selectedHistoryDate = dateKeys[0];
+  }
+
+  const sidebarButtons = dateKeys.map(dateKey => `
+    <button class="date-tab ${dateKey === selectedHistoryDate ? 'date-tab--active' : ''}" data-date="${dateKey}">
+      📅 ${dateKey} (${groupedHistory[dateKey].length})
+    </button>
+  `).join('');
+
+  wrapper.innerHTML = `
+    <div class="history-layout">
+      <div class="history-sidebar">
+        <div class="history-sidebar__title">Select Date</div>
+        ${sidebarButtons}
+      </div>
+      <div class="history-content">
+        <div class="grid grid--auto" id="ordersContainer"></div>
+      </div>
+    </div>
+  `;
+
+  // Add click handlers to sidebar date tabs
+  wrapper.querySelectorAll('.date-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      selectedHistoryDate = tab.dataset.date;
+      renderHistoryInterface();
+    });
   });
+
+  renderOrders();
 }
 
 async function loadActiveOrders() {
   try {
     activeOrders = await apiFetch('/api/orders/active');
-    renderOrders();
+    if (currentView === 'active') {
+      document.getElementById('dashboardViewWrapper').innerHTML = `<div class="grid grid--auto" id="ordersContainer"></div>`;
+      renderOrders();
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function loadCompletedOrders() {
+  try {
+    completedOrders = await apiFetch('/api/orders?status=Completed');
+    groupedHistory = groupOrdersByDate(completedOrders);
+    if (currentView === 'completed') renderHistoryInterface();
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -134,12 +310,30 @@ async function setStatus(orderId, status) {
   }
 }
 
+// History Toggle logic
+document.getElementById('toggleHistoryBtn').addEventListener('click', async function() {
+  if (currentView === 'active') {
+    currentView = 'completed';
+    this.innerText = '📥 View Active';
+    document.getElementById('viewTitle').innerText = 'Order History';
+    await loadCompletedOrders();
+  } else {
+    currentView = 'active';
+    this.innerText = '📋 View History';
+    document.getElementById('viewTitle').innerText = 'Incoming Orders';
+    document.getElementById('dashboardViewWrapper').innerHTML = `<div class="grid grid--auto" id="ordersContainer"></div>`;
+    renderOrders();
+  }
+});
+
 (async () => {
   const socket = await connectCanteenSocket({ role: 'chef' });
   if (socket) {
     socket.on('order:new', (order) => {
       activeOrders.push(order);
-      renderOrders(order._id);
+      if (currentView === 'active') {
+        renderOrders(order._id);
+      }
       showToast(`New order — token #${order.token}`);
     });
     socket.on('order:status', (updatedOrder) => {

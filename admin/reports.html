@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reports · Canteen OS</title>
+<title>Reports · Cafteri</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="../public/css/canteen.css">
 <style>
@@ -45,24 +45,65 @@
     max-width: 280px;
     margin: 12px auto 0;
   }
+
+  /* Image placeholder used exclusively during PDF printing */
+  #printChartImage {
+    display: none;
+    max-width: 100%;
+    height: auto;
+    margin: 12px auto 0;
+  }
+
+  /* CSS rules optimized for clean PDF Layout Generation */
+  @media print {
+    body {
+      background: #ffffff !important;
+      color: #000000 !important;
+    }
+    .ticket-rail, #generatePdfBtn {
+      display: none !important; /* Hide dashboard UI wrappers from PDF */
+    }
+    .shell {
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    .layout-split {
+      display: block !important; /* Stack elements naturally on PDF page grid */
+    }
+    .card {
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      margin-bottom: 30px;
+      page-break-inside: avoid;
+    }
+    /* Hide the live canvas because raw canvases often disappear or blank out when exporting to PDF */
+    .chart-container canvas {
+      display: none !important;
+    }
+    /* Display the captured static image version inside the PDF instead */
+    #printChartImage {
+      display: block !important;
+    }
+  }
 </style>
 </head>
 <body>
 
 <div class="ticket-rail">
-  <div class="ticket-rail__brand">🍽️ Canteen OS <span class="ticket-rail__role">Admin</span></div>
+  <div class="ticket-rail__brand">🍽️ Cafteri <span class="ticket-rail__role">Admin</span></div>
   <div class="ticket-rail__actions">
-    <span class="live-dot is-offline"><span class="live-dot__label">Connecting…</span></span>
     <a href="dashboard.html" class="btn btn-ghost btn-sm">Dashboard</a>
   </div>
 </div>
 
 <div class="shell">
-  <div class="shell__header">
+  <div class="shell__header" style="display: flex; justify-content: space-between; align-items: flex-end;">
     <div>
       <div class="eyebrow">Performance</div>
       <h1>Sales Reports</h1>
     </div>
+    <button id="generatePdfBtn" class="btn btn-primary btn-sm">📄 Generate PDF Report</button>
   </div>
 
   <div class="layout-split">
@@ -86,6 +127,7 @@
       <div class="panel__sub">Where the money's coming from</div>
       <div class="chart-container">
         <canvas id="revenueChart"></canvas>
+        <img id="printChartImage" alt="Revenue Chart Breakdown">
       </div>
     </div>
   </div>
@@ -116,6 +158,10 @@ function renderChart(categories) {
     },
     options: {
       responsive: true,
+      animation: {
+        // Keeps the chart rendering crisp immediately upon request snapshots
+        duration: 0
+      },
       plugins: {
         legend: {
           position: 'bottom',
@@ -162,6 +208,20 @@ async function buildReport() {
     showToast(err.message, 'error');
   }
 }
+
+// Logic to generate the PDF containing real-time reports and canvas chart
+document.getElementById('generatePdfBtn').addEventListener('click', () => {
+  const canvas = document.getElementById('revenueChart');
+  const printImg = document.getElementById('printChartImage');
+  
+  if (canvas && salesChart) {
+    // Convert the live chart to an image so the browser print engine maps it cleanly into the PDF file context
+    printImg.src = canvas.toDataURL('image/png');
+  }
+
+  // Triggers the download/save system dialog directly as a PDF output stream
+  window.print();
+});
 
 (async () => {
   const socket = await connectCanteenSocket({ role: 'admin' });

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Menu · Canteen OS</title>
+<title>Menu · Cafteri</title>
 <link rel="stylesheet" href="../public/css/canteen.css">
 <style>
   :root {
@@ -17,10 +17,27 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    position: relative; /* Position heart symbol */
+  }
+
+  /* Style for the heart button */
+  .fav-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    z-index: 10;
+    user-select: none;
   }
 
   .food-card h3 {
     font-size: 17px;
+    padding-right: 25px; /* Prevent text overlapping the heart */
   }
 
   .food-card__price {
@@ -106,9 +123,10 @@
 <body>
 
 <div class="ticket-rail">
-  <div class="ticket-rail__brand">🍽️ Canteen OS <span class="ticket-rail__role">Student</span></div>
+  <div class="ticket-rail__brand">🍽️ Cafteri <span class="ticket-rail__role">Student</span></div>
   <div class="ticket-rail__actions">
-    <span class="live-dot is-offline"><span class="live-dot__label">Connecting…</span></span>
+    <button id="toggleFavsViewBtn" class="btn btn-ghost btn-sm">❤️ Favorites </button>
+    
     <div class="cart-fab-wrap">
       <a href="cart.html" class="btn btn-ghost btn-sm">Cart</a>
       <span id="cartBadge" class="cart-badge">0</span>
@@ -148,9 +166,18 @@ function getCartKey() {
   return `cart_${currentUser}`;
 }
 
+// Added key for user favorites
+function getFavsKey() {
+  return `favs_${currentUser}`;
+}
+
 let cart = JSON.parse(localStorage.getItem(getCartKey()) || '[]');
+// Added favorites storage state grouped by categories
+let favorites = JSON.parse(localStorage.getItem(getFavsKey()) || '{}');
 let currentCategory = 'Tiffins';
 let menuCache = [];
+// State tracking whether favorites toggle filtering is active
+let showFavoritesOnly = false;
 
 function renderTabs() {
   const tabs = document.getElementById('categoryTabs');
@@ -189,7 +216,14 @@ function stockLabel(item) {
 function renderMenu() {
   const grid = document.getElementById('menuGrid');
 
-  if (menuCache.length === 0) {
+  // Filter cache locally if Favorites Only mode is currently toggled on
+  let itemsToRender = menuCache;
+  if (showFavoritesOnly) {
+    const currentFavs = favorites[currentCategory] || [];
+    itemsToRender = menuCache.filter(item => currentFavs.includes(item._id));
+  }
+
+  if (itemsToRender.length === 0) {
     grid.innerHTML = `
       <div class="empty-state" style="grid-column: 1/-1;">
         <div class="empty-state__icon">🍽️</div>
@@ -199,15 +233,27 @@ function renderMenu() {
     return;
   }
 
-  grid.innerHTML = menuCache.map(item => {
+  // Ensure current category bucket exists in favorites
+  if (!favorites[currentCategory]) {
+    favorites[currentCategory] = [];
+  }
+
+  grid.innerHTML = itemsToRender.map(item => {
     const cartItem = cart.find(i => i._id === item._id);
     const quantity = cartItem ? cartItem.cartQuantity : 0;
     const stock = stockLabel(item);
     const outOfStock = item.quantity <= 0;
     const atMax = quantity >= item.quantity;
+    
+    // Check if item exists in favorites array for the current category
+    const isFav = favorites[currentCategory].includes(item._id);
 
     return `
       <div class="card card--accent food-card" id="card-${item._id}">
+        <button class="fav-btn" data-fav="${item._id}">
+          ${isFav ? '❤️' : '🤍'}
+        </button>
+
         <h3>${escapeHtml(item.name)}</h3>
         <div class="food-card__price">${formatRupees(item.price)}</div>
         <div class="food-card__stock ${stock.cls}">${stock.text}</div>
@@ -231,7 +277,41 @@ function renderMenu() {
   grid.querySelectorAll('[data-change]').forEach(btn => {
     btn.addEventListener('click', () => changeQuantity(btn.dataset.change, Number(btn.dataset.delta)));
   });
+  
+  // Added event listener mapping for favorites logic
+  grid.querySelectorAll('[data-fav]').forEach(btn => {
+    btn.addEventListener('click', () => toggleFavorite(btn.dataset.fav));
+  });
 }
+
+// Added logic function to add/remove elements from favorites list category-wise
+function toggleFavorite(id) {
+  if (!favorites[currentCategory]) {
+    favorites[currentCategory] = [];
+  }
+
+  const index = favorites[currentCategory].indexOf(id);
+  if (index > -1) {
+    favorites[currentCategory].splice(index, 1);
+  } else {
+    favorites[currentCategory].push(id);
+  }
+
+  localStorage.setItem(getFavsKey(), JSON.stringify(favorites));
+  renderMenu();
+}
+
+// Handler logic for the toolbar favorite filter toggle button
+document.getElementById('toggleFavsViewBtn').addEventListener('click', () => {
+  showFavoritesOnly = !showFavoritesOnly;
+  const btn = document.getElementById('toggleFavsViewBtn');
+  if (showFavoritesOnly) {
+    btn.innerHTML = '🤍 All Menu';
+  } else {
+    btn.innerHTML = '❤️ Favorites ';
+  }
+  renderMenu();
+});
 
 async function fetchMenu(category) {
   document.getElementById('menuGrid').innerHTML = `

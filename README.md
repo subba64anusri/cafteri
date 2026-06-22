@@ -1,4 +1,4 @@
-# Canteen OS
+# Cafteri
 
 A real-time canteen ordering system for three roles — **Student**, **Chef**, and
 **Admin** — built on Express, MongoDB, and Socket.IO.
