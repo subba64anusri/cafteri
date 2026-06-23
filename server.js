@@ -37,6 +37,29 @@ app.use((req, res, next) => {
   next();
 });
 
+
+
+
+const path = require('path');
+
+// 1. Serve static assets inside your public/ css and js folders
+app.use('/public', express.static(path.join(__dirname, 'public')));
+
+// 2. Serve the main landing index.html at the root URL
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// 3. Serve folders so you can reach role-specific files
+app.use('/admin', express.static(path.join(__dirname, 'admin')));
+app.use('/chef', express.static(path.join(__dirname, 'chef')));
+app.use('/student', express.static(path.join(__dirname, 'student')));
+
+
+
+
+
+
 // ---------------------------------------------------------------------------
 // Socket.IO — students join a room keyed by their email so order-status
 // updates can be targeted to exactly the right person, plus a shared

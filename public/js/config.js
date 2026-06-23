@@ -8,5 +8,10 @@
   const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
   const host = window.location.hostname || 'localhost';
 
+  if (window.location.hostname === 'cafteri.com' || window.location.hostname === 'www.cafteri.com') {
+  window.CANTEEN_API_BASE = window.location.origin;
+} else {
+  // Fallback for local development
   window.CANTEEN_API_BASE = window.CANTEEN_API_BASE || `${protocol}//${host}:${API_PORT}`;
+}
 })();

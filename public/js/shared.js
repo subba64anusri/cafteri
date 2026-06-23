@@ -1,5 +1,9 @@
 /* Shared helpers used across all pages: toast notifications, a fetch
    wrapper with consistent error handling, and a Socket.IO connector. */
+if (!window.CANTEEN_API_BASE || window.CANTEEN_API_BASE.includes('localhost')) {
+  window.CANTEEN_API_BASE = window.location.origin;
+}
+
 
 function ensureToastStack() {
   let stack = document.querySelector('.toast-stack');
