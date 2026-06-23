@@ -12,76 +12,31 @@
     --accent-soft: rgba(217, 98, 43, 0.12);
   }
 
-  /* Core Responsive Overrides */
-  body {
-    overflow-x: hidden;
-  }
+  body { overflow-x: hidden; }
+  .ticket-rail { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 16px; }
+  .ticket-rail__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
-  .ticket-rail {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-  }
-
-  .ticket-rail__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .ticket--new {
-    animation: ticket-arrive 0.4s ease;
-  }
-
+  .ticket--new { animation: ticket-arrive 0.4s ease; }
   @keyframes ticket-arrive {
     from { opacity: 0; transform: translateY(-8px) scale(0.98); }
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
+  @media (prefers-reduced-motion: reduce) { .ticket--new { animation: none; } }
 
-  @media (prefers-reduced-motion: reduce) {
-    .ticket--new { animation: none; }
-  }
+  .ticket__body .btn { margin-top: 14px; }
+  .shell__header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
+  .ticket__time { font-size: 0.85rem; color: #666; margin-top: 4px; font-weight: normal; }
 
-  .ticket__body .btn {
-    margin-top: 14px;
-  }
-
-  .shell__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .ticket__time {
-    font-size: 0.85rem;
-    color: #666;
-    margin-top: 4px;
-    font-weight: normal;
-  }
-
-  /* Mobile Media Query Optimization */
   @media (max-width: 768px) {
-    .shell__header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    .shell__header .btn {
-      width: 100%;
-      margin-top: 8px;
-    }
+    .shell__header { flex-direction: column; align-items: flex-start; }
+    .shell__header .btn { width: 100%; margin-top: 8px; }
   }
 </style>
 </head>
 <body>
 
 <div class="ticket-rail">
-  <div class="ticket-rail__brand">👨‍🍳 Cafteri <span class="ticket-rail__role">Chef</span></div>
+  <div class="ticket-rail__brand">👨‍🍳 Cafteri <span class="ticket-rail__role" id="canteenNameBadge">Chef</span></div>
   <div class="ticket-rail__actions">
     <button class="btn btn-danger btn-sm" id="logoutBtn">Logout</button>
   </div>
@@ -106,19 +61,22 @@
 <script src="../public/js/config.js"></script>
 <script src="../public/js/shared.js"></script>
 <script>
+const chefUsername = Session.getChef();
+const myCanteen = Session.getSelectedCanteen();
+if (!chefUsername || !myCanteen) {
+  window.location.href = 'login.html';
+}
+
+document.getElementById('canteenNameBadge').textContent = myCanteen ? myCanteen.name : 'Chef';
+
 let activeOrders = [];
 let completedOrders = [];
 let currentView = 'active';
 
 function renderOrders(highlightId) {
   const container = document.getElementById('ordersContainer');
-  
-  let ordersToRender = [];
-  if (currentView === 'active') {
-    ordersToRender = activeOrders;
-  } else {
-    ordersToRender = completedOrders;
-  }
+
+  let ordersToRender = currentView === 'active' ? activeOrders : completedOrders;
 
   if (ordersToRender.length === 0) {
     container.innerHTML = `
@@ -184,10 +142,8 @@ function renderOrders(highlightId) {
 
 async function loadActiveOrders() {
   try {
-    activeOrders = await apiFetch('/api/orders/active');
-    if (currentView === 'active') {
-      renderOrders();
-    }
+    activeOrders = await apiFetch(`/api/orders/active?canteenId=${myCanteen.id}`);
+    if (currentView === 'active') renderOrders();
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -195,25 +151,20 @@ async function loadActiveOrders() {
 
 async function loadTodayCompletedOrders() {
   try {
-    const allCompleted = await apiFetch('/api/orders?status=Completed');
-    
-    // Establish dynamic target timestamps for today's midnight boundaries
+    const allCompleted = await apiFetch(`/api/orders?canteenId=${myCanteen.id}&status=Completed`);
+
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
-
     const endOfToday = new Date();
-    endOfToday.setHours(23, 5, 59, 999);
+    endOfToday.setHours(23, 59, 59, 999);
 
-    // Filters for records created inside the today window
     completedOrders = allCompleted.filter(order => {
       if (!order.createdAt) return false;
       const oDate = new Date(order.createdAt);
       return oDate >= startOfToday && oDate <= endOfToday;
     });
 
-    if (currentView === 'completed') {
-      renderOrders();
-    }
+    if (currentView === 'completed') renderOrders();
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -253,16 +204,18 @@ document.getElementById('toggleHistoryBtn').addEventListener('click', async func
 });
 
 (async () => {
-  const socket = await connectCanteenSocket({ role: 'chef' });
+  const socket = await connectCanteenSocket({ role: 'chef', canteenId: myCanteen.id });
   if (socket) {
     socket.on('order:new', (order) => {
+      // Defensive check: ignore events for any other canteen, even though
+      // the server only emits to this canteen's room — belt and suspenders.
+      if (String(order.canteen) !== String(myCanteen.id)) return;
       activeOrders.push(order);
-      if (currentView === 'active') {
-        renderOrders(order._id);
-      }
+      if (currentView === 'active') renderOrders(order._id);
       showToast(`New order — token #${order.token}`);
     });
     socket.on('order:status', (updatedOrder) => {
+      if (String(updatedOrder.canteen) !== String(myCanteen.id)) return;
       if (updatedOrder.status === 'Completed' || updatedOrder.status === 'Cancelled') {
         activeOrders = activeOrders.filter(o => o._id !== updatedOrder._id);
       } else {
@@ -275,7 +228,7 @@ document.getElementById('toggleHistoryBtn').addEventListener('click', async func
 })();
 
 document.getElementById('logoutBtn').addEventListener('click', () => {
-  localStorage.removeItem('canteenChefSession');
+  Session.clearChef();
   window.location.href = 'login.html';
 });
 

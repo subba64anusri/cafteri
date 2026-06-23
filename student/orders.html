@@ -12,158 +12,77 @@
     --accent-soft: rgba(31, 138, 87, 0.12);
   }
 
-  body {
-    overflow-x: hidden;
-  }
+  body { overflow-x: hidden; }
+  .ticket-rail { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 16px; background: var(--ink); }
+  .ticket-rail__brand { white-space: nowrap; }
+  .ticket-rail__actions { display: flex; gap: 12px; align-items: center; }
 
-  .ticket-rail {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-    background: var(--ink);
-  }
-
-  .ticket-rail__brand {
-    white-space: nowrap;
-  }
-
-  .ticket-rail__actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-  }
-
-  /* Profile Avatar and Dropdown UI Panel */
-  .profile-wrap {
-    position: relative;
-    display: inline-block;
-  }
-
+  .profile-wrap { position: relative; display: inline-block; }
   .profile-btn {
     background: rgba(250, 247, 240, 0.1);
     border: 1px solid rgba(250, 247, 240, 0.15);
     color: var(--paper);
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 16px;
-    transition: all 0.2s ease;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 16px; transition: all 0.2s ease;
   }
-
-  .profile-btn:hover {
-    background: rgba(250, 247, 240, 0.2);
-    border-color: var(--accent);
-  }
+  .profile-btn:hover { background: rgba(250, 247, 240, 0.2); border-color: var(--accent); }
 
   .profile-modal {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 2000;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+    z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px;
   }
-
   .profile-card-popup {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    width: 100%;
-    max-width: 360px;
-    padding: 28px 24px;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.15);
-    position: relative;
-    text-align: center;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); width: 100%; max-width: 360px;
+    padding: 28px 24px; box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+    position: relative; text-align: center;
   }
-
-  .profile-card-popup__close {
-    position: absolute;
-    top: 14px;
-    right: 16px;
-    background: none;
-    border: none;
-    font-size: 18px;
-    cursor: pointer;
-    color: var(--muted);
-  }
-
+  .profile-card-popup__close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 18px; cursor: pointer; color: var(--muted); }
   .profile-card-popup__avatar {
-    width: 60px;
-    height: 60px;
-    background: var(--accent-soft);
-    color: var(--accent-dark);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
-    margin: 0 auto 16px;
+    width: 60px; height: 60px; background: var(--accent-soft); color: var(--accent-dark);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 28px; margin: 0 auto 16px;
   }
+  .profile-card-popup h3 { font-size: 20px; margin-bottom: 4px; }
+  .profile-card-popup p { font-size: 14px; color: var(--muted); margin-bottom: 24px; word-break: break-all; }
 
-  .profile-card-popup h3 {
-    font-size: 20px;
-    margin-bottom: 4px;
-  }
+  .shell__header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
 
-  .profile-card-popup p {
-    font-size: 14px;
+  .ticket__canteen-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
     color: var(--muted);
-    margin-bottom: 24px;
-    word-break: break-all;
-  }
-
-  .shell__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 12px;
+    margin-bottom: 8px;
   }
 
   @media (max-width: 580px) {
-    .ticket-rail__actions .btn-sm {
-      padding: 6px 8px;
-      font-size: 12px;
-    }
+    .ticket-rail__actions .btn-sm { padding: 6px 8px; font-size: 12px; }
   }
-
   @media (max-width: 480px) {
-    .shell__header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
+    .shell__header { flex-direction: column; align-items: flex-start; }
   }
 </style>
 </head>
 <body>
 
 <div class="ticket-rail">
-  <div class="ticket-rail__brand">🍽️ Cafteri <span class="ticket-rail__role">Student</span></div>
+  <div class="ticket-rail__brand">🍽️ Cafteri </div>
   <div class="ticket-rail__actions">
     <a href="dashboard.html" class="btn btn-ghost btn-sm">Menu</a>
-<a href="cart.html" class="btn btn-ghost btn-sm" title="Cart" style="filter: brightness(0) invert(1);">🛒</a>    
-    <!-- Aligned Profile Widget Anchor Trigger Container -->
+    <a href="cart.html" class="btn btn-ghost btn-sm" title="Cart" style="filter: brightness(0) invert(1);">🛒</a>
     <div class="profile-wrap">
       <button class="profile-btn" id="profileModalTrigger" title="View Profile">👤</button>
     </div>
   </div>
 </div>
 
-<!-- Modal Profile View Layout Container -->
 <div class="profile-modal" id="profileOverlayContainer">
   <div class="profile-card-popup">
     <button class="profile-card-popup__close" id="profileCloseBtn">&times;</button>
     <div class="profile-card-popup__avatar">👤</div>
-    <h3 id="displayProfileName">Student Account</h3>
-    <p id="displayProfileEmail">loading-session@college.edu</p>
+    <h3 id="displayProfileName">Customer Account</h3>
+    <p id="displayProfileEmail">loading session…</p>
     <button class="btn btn-danger btn-block" id="logoutBtn">Logout</button>
   </div>
 </div>
@@ -171,7 +90,7 @@
 <div class="shell">
   <div class="shell__header">
     <div>
-      <div class="eyebrow">Live status</div>
+      <div class="eyebrow">Live status · all canteens</div>
       <h1>My Orders</h1>
     </div>
   </div>
@@ -184,36 +103,24 @@
 <script src="../public/js/config.js"></script>
 <script src="../public/js/shared.js"></script>
 <script>
-const currentUser = localStorage.getItem('loggedInUserEmail');
+const currentUser = Session.getStudent();
 if (!currentUser) {
   window.location.href = 'login.html';
 }
 
-// Map profile fields into view containers
 document.getElementById('displayProfileEmail').textContent = currentUser;
-if (currentUser.includes('@')) {
+if (currentUser && currentUser.includes('@')) {
   const accountPrefixName = currentUser.split('@')[0];
   document.getElementById('displayProfileName').textContent = accountPrefixName.charAt(0).toUpperCase() + accountPrefixName.slice(1);
 }
 
-// Modal interactivity listeners
 const profileTrigger = document.getElementById('profileModalTrigger');
 const profileOverlay = document.getElementById('profileOverlayContainer');
 const profileClose = document.getElementById('profileCloseBtn');
 
-profileTrigger.addEventListener('click', () => {
-  profileOverlay.style.display = 'flex';
-});
-
-profileClose.addEventListener('click', () => {
-  profileOverlay.style.display = 'none';
-});
-
-profileOverlay.addEventListener('click', (e) => {
-  if (e.target === profileOverlay) {
-    profileOverlay.style.display = 'none';
-  }
-});
+profileTrigger.addEventListener('click', () => { profileOverlay.style.display = 'flex'; });
+profileClose.addEventListener('click', () => { profileOverlay.style.display = 'none'; });
+profileOverlay.addEventListener('click', (e) => { if (e.target === profileOverlay) profileOverlay.style.display = 'none'; });
 
 const STATUS_LABEL = {
   Preparing: { text: '🔔 Preparing', cls: 'status-pill--preparing' },
@@ -221,6 +128,11 @@ const STATUS_LABEL = {
   Completed: { text: '🍽️ Completed', cls: 'status-pill--completed' },
   Cancelled: { text: '✕ Cancelled', cls: 'status-pill--cancelled' }
 };
+
+// canteenNameById is filled in once on load so each ticket can show which
+// canteen it came from, even though /api/orders itself returns only a
+// canteen ID, not a populated name.
+let canteenNameById = {};
 
 function renderOrders(orders) {
   const container = document.getElementById('ordersContainer');
@@ -230,7 +142,7 @@ function renderOrders(orders) {
       <div class="empty-state" style="grid-column: 1/-1;">
         <div class="empty-state__icon">📦</div>
         <div class="empty-state__title">No orders yet</div>
-        <p class="text-muted">When you place an order it'll show up here. <a href="dashboard.html" style="color:var(--accent-dark); font-weight:600;">Go to the menu →</a></p>
+        <p class="text-muted">When you place an order it'll show up here. <a href="select_canteen.html" style="color:var(--accent-dark); font-weight:600;">Choose a canteen →</a></p>
       </div>`;
     return;
   }
@@ -240,6 +152,7 @@ function renderOrders(orders) {
       `${escapeHtml(i.name)} <span class="qty">×${i.cartQuantity}</span>`
     ).join('<br>');
     const status = STATUS_LABEL[order.status] || STATUS_LABEL.Preparing;
+    const canteenName = canteenNameById[order.canteen] || 'Canteen';
 
     return `
       <div class="ticket" data-order-id="${order._id}">
@@ -251,6 +164,7 @@ function renderOrders(orders) {
           <span class="status-pill ${status.cls}">${status.text}</span>
         </div>
         <div class="ticket__body">
+          <div class="ticket__canteen-tag">📍 ${escapeHtml(canteenName)}</div>
           <div class="ticket__items">${itemsList}</div>
           <div class="ticket__total">${formatRupees(order.total)}</div>
         </div>
@@ -260,8 +174,18 @@ function renderOrders(orders) {
 
 let ordersCache = [];
 
+async function loadCanteenNames() {
+  try {
+    const canteens = await apiFetch('/api/canteens');
+    canteenNameById = Object.fromEntries(canteens.map(c => [c._id, c.name]));
+  } catch (_) {
+    // Non-fatal — tickets just show "Canteen" as a fallback label.
+  }
+}
+
 async function loadOrders() {
   try {
+    await loadCanteenNames();
     ordersCache = await apiFetch(`/api/orders?email=${encodeURIComponent(currentUser)}`);
     renderOrders(ordersCache);
   } catch (err) {
@@ -295,7 +219,7 @@ async function loadOrders() {
 })();
 
 document.getElementById('logoutBtn').addEventListener('click', () => {
-  localStorage.removeItem('loggedInUserEmail');
+  Session.clearStudent();
   window.location.href = 'login.html';
 });
 

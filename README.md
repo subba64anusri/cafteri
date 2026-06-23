@@ -1,177 +1,134 @@
-# Cafteri
+# Cafteri — Multi-Canteen Management Platform
 
-A real-time canteen ordering system for three roles — **Student**, **Chef**, and
-**Admin** — built on Express, MongoDB, and Socket.IO.
+A complete refactor of the original single-canteen Online Canteen Management
+System into a platform that can run any number of independent canteens from
+one codebase and one database.
 
-## What changed from the original
+## What changed, in one paragraph
 
-This is a full rebuild, not a patch. The original had no working order backend
-at all: every "order" only ever existed in the browser's `localStorage`, so the
-chef, the admin, and the student were each looking at completely different,
-disconnected data. The fixes below are structural, not cosmetic.
+Every canteen now owns its own menu, orders, tokens, chefs, and revenue —
+nothing crosses canteen boundaries. A new **Manager** role (replacing the old
+global "Admin") can create canteens, switch between them from one dashboard
+without logging out, and fully manage each canteen's chefs and menu. A
+**Chef** account is now assigned to exactly one canteen by a manager and can
+never see or touch another canteen's data, even by tampering with requests.
+**Customers** (the old "Student" role, now used by anyone — students,
+faculty, staff, visitors) pick a canteen before browsing, and their cart and
+menu view are scoped to that canteen, while their order history spans every
+canteen they've ever ordered from.
 
-**Backend**
-- Added the order pipeline that didn't exist: `POST /api/orders`,
-  `GET /api/orders`, `GET /api/orders/active`, `PUT /api/orders/:id/status`.
-  Orders are now real MongoDB documents, validated server-side against the
-  live menu (price and stock can't be spoofed from the browser).
-- Placing an order now decrements stock atomically; the admin's menu page and
-  every student's screen update live when stock changes.
-- Removed the duplicate `cors` import and duplicate `GET /api/menu` route.
-- Reports (`/api/reports/summary`, `/api/reports/items`) are computed from
-  real `Order` documents instead of a schema nothing actually wrote to.
-- Added Socket.IO. The server emits `order:new`, `order:status`, and
-  `menu:update` so every screen reflects reality within milliseconds —
-  no polling, no manual refresh.
-- Moved configuration (port, Mongo URI, CORS origins, default accounts) into
-  a `.env` file instead of hardcoded values and a hardcoded IP address.
+## Running it locally
 
-**Frontend**
-- Removed every hardcoded `http://10.177.113.16:5000` reference. Each page now
-  detects the API host from `window.location` (see `public/js/config.js`), so
-  the same files work on any machine without edits.
-- Fixed the cart bug in the student app: the dashboard wrote to
-  `cart_<email>` but the cart page's remove/checkout logic read from a
-  different, fixed key (`studentCart`) — meaning removed items could reappear
-  and checkout could silently use stale data. Everything now reads and
-  writes through one `getCartKey()` function.
-- Replaced `prompt()`-based add/edit flows in the admin menu page with a real
-  form (validates price/quantity, shows inline errors, no more "click OK three
-  times").
-- Fixed the ₹ / $ currency inconsistency (admin menu table showed `$`, every
-  other screen showed `₹`).
-- One shared CSS design system (`public/css/canteen.css`) replaces three
-  near-duplicate inline stylesheets, with a consistent "ticket" motif (order
-  tokens, kitchen-ticket cards) and a distinct accent color per role.
-- Added empty states, loading skeletons, and toast notifications in place of
-  blank tables and `alert()` popups.
+You'll need Node.js 18+ and a running MongoDB instance.
 
-**Kept simple, by request**
-- Passwords are stored in plain text and there are no JWT/session tokens.
-  This matches what you asked for, but means **this is not safe to expose
-  directly to the public internet as-is** — see Security notes below.
-
-## Project structure
-
-```
-canteen/
-├── server.js              Express + Socket.IO entrypoint
-├── seed.js                 One-time script to populate starter menu items
-├── models/index.js         Mongoose schemas (Admin, Chef, Student, Menu, Order)
-├── routes/
-│   ├── auth.js              /api/admin/login, /api/chef/login, /api/student/*
-│   ├── menu.js               /api/menu (CRUD)
-│   ├── orders.js             /api/orders (place, list, update status)
-│   └── reports.js            /api/reports/summary, /api/reports/items
-├── public/
-│   ├── css/canteen.css       Shared design system
-│   └── js/
-│       ├── config.js          Auto-detects the API base URL
-│       └── shared.js          apiFetch(), toasts, Socket.IO connector
-├── index.html               Role picker
-├── student/                 login, register, dashboard (menu), cart, orders
-├── admin/                   login, dashboard, menu management, reports
-└── chef/                    login, dashboard (kitchen ticket board)
-```
-
-## Running it on your server
-
-### 1. Prerequisites
-- Node.js 18+
-- MongoDB running locally (`mongod`), since you're managing your own database
-  server rather than using a cloud database.
-
-### 2. Install dependencies
 ```bash
-cd canteen
+cd cafteri
+cp .env.example .env       # edit MONGO_URI etc. if needed
 npm install
+npm run seed                # creates 2 sample canteens, a manager, 2 chefs, starter menus
+npm start                    # or: npm run dev (with nodemon)
 ```
 
-### 3. Configure environment
-```bash
-cp .env.example .env
-```
-Open `.env` and adjust if needed — the defaults assume MongoDB on
-`127.0.0.1:27017` and the API on port `5000`. If students/chefs/admins will
-access the system from other devices on your network, set `CORS_ORIGINS` to
-the exact origin(s) you'll serve the frontend from (or leave as `*` while
-testing).
+Then open `http://localhost:5000` in a browser. The server serves both the
+API and the static frontend from one origin, so nothing else needs to run.
 
-### 4. Seed starter menu data (optional, recommended for first run)
-```bash
-npm run seed
-```
+### Default accounts (created by `npm run seed`)
 
-### 5. Start the server
-```bash
-npm start
-```
-You should see:
-```
-✅ Connected to MongoDB at mongodb://127.0.0.1:27017/canteenDB
-👤 Default admin created -> admin / password123
-👨‍🍳 Default chef created -> chef1 / password123
-🚀 Canteen server running on port 5000
-```
+| Role | Username | Password | Notes |
+|---|---|---|---|
+| Manager | `manager` | `password123` | Global — can manage every canteen |
+| Chef | `chef1` | `password123` | Assigned to "Main Campus Canteen" |
+| Chef | `chef2` | `password123` | Assigned to "Hostel Block Canteen" |
 
-### 6. Serve the frontend
-The HTML/CSS/JS files are static — serve them with any static file server.
-For a quick local setup, from the project root:
-```bash
-npx http-server . -p 8080
+Customers register their own accounts from the **Order Food** portal.
+
+**Change these passwords (or delete and re-seed with your own) before
+deploying anywhere reachable by other people.**
+
+## Architecture
+
 ```
-Then open `http://<your-server-ip>:8080/index.html`.
-
-In production, put a real static file server (e.g. nginx) in front of these
-files, and make sure it's reachable from the same network as port `5000`
-(the API). The frontend automatically calls the API on the same hostname it's
-loaded from, on port 5000 — so as long as both are reachable at that hostname,
-no code changes are needed.
-
-### 7. First login
-- **Admin:** `admin` / `password123` (change immediately — see below)
-- **Chef:** `chef1` / `password123`
-- **Student:** register a new account from the student login screen
-
-## Changing default credentials
-
-Edit `.env` before first boot:
-```
-DEFAULT_ADMIN_USERNAME=youradminname
-DEFAULT_ADMIN_PASSWORD=a-real-password
-DEFAULT_CHEF_USERNAME=yourchefname
-DEFAULT_CHEF_PASSWORD=a-real-password
-```
-These only take effect if the account doesn't already exist. If you've
-already booted the server once, change the password directly in MongoDB:
-```bash
-mongosh canteenDB --eval 'db.admins.updateOne({username:"admin"},{$set:{password:"new-password"}})'
+server.js                  Express + Socket.IO entry point, static file serving
+models/index.js            Canteen, Manager, Chef, Student, Menu, Order schemas
+middleware/auth.js          requireManager / requireChef / requireStudent / loadCanteen
+routes/
+  auth.js                   /api/manager/login, /api/chef/login, /api/student/login + register
+  canteens.js               /api/canteens — public, read-only, active canteens only
+  manager.js                /api/manager/* — canteen CRUD + chef CRUD (manager-only)
+  menu.js                   /api/menu — canteen-scoped reads/writes
+  orders.js                 /api/orders — canteen-scoped order placement + status
+  reports.js                /api/reports — canteen-scoped summary + item breakdown
+seed.js                     Sample data: 2 canteens, 1 manager, 2 chefs, starter menus
+public/
+  index.html                Landing page — Order Food / Chef Portal / Manager Portal
+  css/canteen.css           Shared design system (unchanged from the original app,
+                             extended with a few new component classes)
+  js/config.js               API base URL detection (unchanged)
+  js/shared.js               Session helpers, apiFetch with auth headers, Socket.IO connector
+  manager/                   Manager login + single-page dashboard (canteen switcher,
+                              overview/menu/orders/chefs/reports tabs)
+  chef/                      Chef login + kitchen ticket dashboard (own canteen only)
+  student/                   Customer canteen-selection, login, register, menu, cart, orders
 ```
 
-## Security notes (please read before going live)
+## Authentication model (by design, not an oversight)
 
-Per your request, this build keeps auth simple — no password hashing, no
-session tokens. That's a reasonable choice for a trusted internal network
-(e.g. a campus LAN that only canteen staff and students can reach), but it
-means:
-- Anyone with network access to port 5000 can read the database contents
-  with the right tooling.
-- Passwords are stored and transmitted in plain text.
+Per explicit instruction, this project does **not** use JWTs. Each role's
+login returns an identifying string (manager username, chef username, or
+customer email), which the frontend stores in `localStorage` via the
+`Session` helper in `shared.js` and re-sends as a header
+(`x-manager-username`, `x-chef-username`, or `x-student-email`) on every
+request. The server re-validates that header against the database on
+**every** request (see `middleware/auth.js`) — there is no signed token, so
+this is only as secure as the original app's localStorage-based session, but
+unlike the original app, every protected route now actually checks the
+header against a real account server-side rather than trusting any string.
 
-If this will ever be reachable from the open internet, the two highest-value
-upgrades are bcrypt password hashing and short-lived session tokens (JWT) —
-happy to add both later if you change your mind, it's a contained change
-limited to `routes/auth.js` and a small client-side update to store/send a
-token.
+If you later want stronger security (signed/expiring sessions, password
+hashing for chefs, rate limiting on login), the `middleware/auth.js` file is
+the only place that needs to change — every route already depends on it
+rather than rolling its own auth logic.
 
-## How real-time works
+## Multi-canteen isolation — how it's enforced
 
-The server keeps two kinds of Socket.IO rooms:
-- `student:<email>` — joined by a student's browser tab, used to push order
-  status changes (`order:status`) to exactly that person.
-- `kitchen` — joined by chef and admin tabs, used for `order:new` so the
-  kitchen board updates the instant an order is placed, with no refresh.
+- **Database**: `Menu`, `Order`, and `Chef` all carry a `canteen` reference.
+  Menu-name uniqueness and order-token uniqueness are indexed *per canteen*,
+  not globally — two canteens can each have a "Veg Thali" or an active
+  token #412 at the same time without conflict.
+- **API**: every menu/order/report route requires a `canteenId` and, for
+  chef requests, the chef's own assigned canteen is substituted automatically
+  — a chef cannot pass a different `canteenId` to read or write another
+  canteen's data. Edit/delete routes additionally re-check that the
+  *existing* item/order actually belongs to the chef's canteen before
+  allowing the change, closing the gap where someone could otherwise guess
+  another canteen's document ID.
+- **Realtime**: Socket.IO rooms are keyed `kitchen:<canteenId>` instead of a
+  single shared room, so live order/menu updates for one canteen never reach
+  another canteen's chef or manager view.
+- **Frontend**: the customer's cart is keyed `cart_<email>_<canteenId>`, so
+  switching canteens never mixes items from two kitchens into one order.
 
-`menu:update` is broadcast to everyone, so a stock or price change from the
-admin panel — or stock decreasing because someone else just ordered the last
-plate of biryani — shows up on every open student screen immediately.
+## Known limitations / honest caveats
+
+- This sandbox has no network access, so I could not run `npm install` or
+  boot the server to test live HTTP requests end-to-end. Every file passed
+  `node --check` (syntax), every internal link/redirect was programmatically
+  resolved against the actual file tree (no broken links), and every
+  frontend `apiFetch` call was cross-referenced by hand against the actual
+  backend route table (method + path) to confirm they match. I'd still
+  recommend you run through the core flows once locally (register, place an
+  order, mark it ready as a chef, add a canteen as a manager) before relying
+  on this in production.
+- Chef and customer passwords are stored in plaintext in the database,
+  matching the original app's behavior for those two roles (only the
+  Manager/former-Admin role used bcrypt in the original code, and that's
+  preserved here). If you want this hardened, bcrypt-hash `Chef.password`
+  and `Student.password` the same way `Manager.passwordHash` already is —
+  happy to do this as a follow-up if you'd like it.
+- The category list (`Tiffins, Meals, Drinks, Snacks, Desserts`) is still a
+  hardcoded constant in three places (`models/index.js`, the manager
+  dashboard JS, and the customer dashboard JS) rather than a single shared
+  source — this matches the original app's own pattern (it was already
+  hardcoded client-side before this refactor) but would be a good candidate
+  to centralize via the existing `/api/menu/categories` endpoint if you want
+  categories to ever be customizable per canteen in the future.

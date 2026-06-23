@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Chef Login · Cafteri</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chef Login · Cafteri</title>
 <link rel="stylesheet" href="../public/css/canteen.css">
 <style>
   :root {
@@ -16,7 +17,7 @@
 
 <div class="auth-shell">
   <div class="auth-card">
-    <div class="auth-card__eyebrow">Counter 03</div>
+    <a href="../index.html" class="back-link">← Back to portals</a>
     <h1>Chef Login</h1>
 
     <div id="banner" class="banner banner--error"></div>
@@ -32,9 +33,6 @@
       </div>
       <button class="btn btn-primary btn-block" type="submit" id="submitBtn">Login</button>
     </form>
-
-    <div class="auth-card__footer">
-    </div>
   </div>
 </div>
 
@@ -65,12 +63,17 @@ form.addEventListener('submit', async (e) => {
   submitBtn.textContent = 'Logging in…';
 
   try {
-    await apiFetch('/api/chef/login', {
+    const result = await apiFetch('/api/chef/login', {
       method: 'POST',
       body: JSON.stringify({ username, password })
     });
 
-    localStorage.setItem('canteenChefSession', username);
+    // The chef's canteen is resolved server-side — never chosen by the chef.
+    Session.setChef(result.user.username, {
+      id: result.canteen.id,
+      name: result.canteen.name,
+      slug: result.canteen.slug
+    });
     window.location.href = 'dashboard.html';
   } catch (err) {
     setBanner(err.message);

@@ -735,3 +735,261 @@ tbody tr:hover td {
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
 }
+
+/* --------------------------------------------------------------------------
+   Landing page — three portal entry cards
+   -------------------------------------------------------------------------- */
+.landing-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.landing-shell__brand {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--paper);
+  margin-bottom: 8px;
+}
+
+.landing-shell__tagline {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(250, 247, 240, 0.55);
+  margin-bottom: 48px;
+}
+
+.portal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 920px;
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .portal-grid { grid-template-columns: 1fr; }
+}
+
+.portal-card {
+  background: var(--paper);
+  border-radius: var(--radius-lg);
+  padding: 36px 28px;
+  text-decoration: none;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-shadow: var(--shadow-pop);
+  border-top: 4px solid var(--portal-accent, var(--accent));
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.portal-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.portal-card__icon {
+  font-size: 40px;
+  margin-bottom: 6px;
+}
+
+.portal-card h2 {
+  font-size: 19px;
+}
+
+.portal-card p {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.portal-card--order { --portal-accent: #1f8a57; }
+.portal-card--chef { --portal-accent: #d9622b; }
+.portal-card--manager { --portal-accent: #2b5fd9; }
+
+/* --------------------------------------------------------------------------
+   Canteen picker (customer "select canteen" screen) and canteen cards
+   (manager dashboard) — share the same .canteen-card look
+   -------------------------------------------------------------------------- */
+.canteen-card {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.canteen-card h3 {
+  font-size: 18px;
+  padding-right: 70px;
+}
+
+.canteen-card__location {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.canteen-card__description {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.canteen-card__badge {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.canteen-card__badge--active {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.canteen-card__badge--inactive {
+  background: rgba(211, 60, 60, 0.1);
+  color: var(--danger-dark);
+}
+
+.canteen-card__stats {
+  display: flex;
+  gap: 16px;
+  margin: 6px 0 16px;
+  flex-wrap: wrap;
+}
+
+.canteen-card__stat {
+  font-family: var(--font-mono);
+}
+
+.canteen-card__stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+
+.canteen-card__stat-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.canteen-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+
+.canteen-card__actions .btn { flex: 1; }
+
+/* --------------------------------------------------------------------------
+   Manager top nav — switches between dashboard sections within a canteen
+   -------------------------------------------------------------------------- */
+.manager-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0;
+}
+
+.manager-tab {
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.manager-tab:hover { color: var(--ink); }
+
+.manager-tab.is-active {
+  color: var(--accent-dark);
+  border-bottom-color: var(--accent);
+}
+
+.canteen-switcher {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  color: rgba(250, 247, 240, 0.75);
+}
+
+.canteen-switcher select {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--paper);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 13.5px;
+  font-family: var(--font-body);
+}
+
+.canteen-switcher select option {
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------------------
+   Status / role badges used in chef + manager tables
+   -------------------------------------------------------------------------- */
+.role-badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-weight: 700;
+  display: inline-flex;
+}
+
+.role-badge--active {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.role-badge--inactive {
+  background: rgba(107, 101, 87, 0.12);
+  color: var(--muted);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--muted);
+  text-decoration: none;
+  margin-bottom: 4px;
+}
+
+.back-link:hover { color: var(--accent-dark); }
