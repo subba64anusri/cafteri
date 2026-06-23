@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Student Login · Cafteri</title>
+<title>Login · Cafteri</title>
 <link rel="stylesheet" href="../public/css/canteen.css">
 <style>
   :root {
@@ -17,15 +17,16 @@
 
 <div class="auth-shell">
   <div class="auth-card">
-    <div class="auth-card__eyebrow">Counter 01</div>
-    <h1>Student Login</h1>
+    <a href="select_canteen.html" class="back-link">← Choose a different canteen</a>
+    <h1>Welcome back</h1>
+    <p class="text-muted" id="canteenContext" style="margin-bottom: 16px; font-size: 13.5px;"></p>
 
     <div id="banner" class="banner banner--error"></div>
 
     <form id="loginForm">
       <div class="field">
         <label for="email">Email</label>
-        <input type="email" id="email" placeholder="you@college.edu" autocomplete="username" required>
+        <input type="email" id="email" placeholder="you@example.com" autocomplete="username" required>
       </div>
       <div class="field">
         <label for="password">Password</label>
@@ -35,7 +36,7 @@
     </form>
 
     <div class="auth-card__footer">
-      <a href="register.html">Create a new account</a><br>
+      <a href="register.html">New here? Create an account</a>
     </div>
   </div>
 </div>
@@ -43,6 +44,12 @@
 <script src="../public/js/config.js"></script>
 <script src="../public/js/shared.js"></script>
 <script>
+const myCanteen = Session.getSelectedCanteen();
+if (!myCanteen) {
+  window.location.href = 'select_canteen.html';
+}
+document.getElementById('canteenContext').textContent = myCanteen ? `Ordering from ${myCanteen.name}` : '';
+
 const form = document.getElementById('loginForm');
 const banner = document.getElementById('banner');
 const submitBtn = document.getElementById('submitBtn');
@@ -67,12 +74,12 @@ form.addEventListener('submit', async (e) => {
   submitBtn.textContent = 'Logging in…';
 
   try {
-    await apiFetch('/api/student/login', {
+    const result = await apiFetch('/api/student/login', {
       method: 'POST',
-      body: JSON.stringify({ username: email, password })
+      body: JSON.stringify({ email, password })
     });
 
-    localStorage.setItem('loggedInUserEmail', email);
+    Session.setStudent(result.user.email);
     window.location.href = 'dashboard.html';
   } catch (err) {
     setBanner(err.message);

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Choose a Canteen · Cafteri</title>
+<link rel="stylesheet" href="../public/css/canteen.css">
+<style>
+  :root {
+    --accent: #1f8a57;
+    --accent-dark: #176e45;
+    --accent-soft: rgba(31, 138, 87, 0.12);
+  }
+  .canteen-card__actions .btn { flex: none; width: 100%; }
+</style>
+</head>
+<body>
+
+<div class="ticket-rail">
+  <div class="ticket-rail__brand">🍽️ Cafteri</div>
+  <div class="ticket-rail__actions">
+    <a href="../index.html" class="btn btn-ghost btn-sm">← Portals</a>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="shell__header">
+    <div>
+      <div class="eyebrow">Order Food</div>
+      <h1>Choose a canteen</h1>
+    </div>
+  </div>
+
+  <div class="grid grid--3" id="canteenGrid">
+    <div class="card skeleton" style="height: 180px;"></div>
+    <div class="card skeleton" style="height: 180px;"></div>
+    <div class="card skeleton" style="height: 180px;"></div>
+  </div>
+</div>
+
+<script src="../public/js/config.js"></script>
+<script src="../public/js/shared.js"></script>
+<script>
+async function loadCanteens() {
+  const grid = document.getElementById('canteenGrid');
+  try {
+    const canteens = await apiFetch('/api/canteens');
+
+    if (canteens.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state" style="grid-column: 1/-1;">
+          <div class="empty-state__icon">🏠</div>
+          <div class="empty-state__title">No canteens available right now</div>
+          <p class="text-muted">Please check back later.</p>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = canteens.map(c => `
+      <div class="card card--accent canteen-card">
+        <h3>${escapeHtml(c.name)}</h3>
+        ${c.location ? `<div class="canteen-card__location">📍 ${escapeHtml(c.location)}</div>` : ''}
+        ${c.description ? `<div class="canteen-card__description">${escapeHtml(c.description)}</div>` : ''}
+        <div class="canteen-card__actions">
+          <button class="btn btn-primary" data-select="${c._id}" data-name="${escapeHtml(c.name)}" data-slug="${escapeHtml(c.slug)}">Order from here</button>
+        </div>
+      </div>`).join('');
+
+    grid.querySelectorAll('[data-select]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        Session.setSelectedCanteen({ id: btn.dataset.select, name: btn.dataset.name, slug: btn.dataset.slug });
+
+        // If already logged in as a customer, skip straight to the menu;
+        // otherwise go to login first.
+        if (Session.getStudent()) {
+          window.location.href = 'dashboard.html';
+        } else {
+          window.location.href = 'login.html';
+        }
+      });
+    });
+  } catch (err) {
+    showToast(err.message, 'error');
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1;">
+        <div class="empty-state__icon">⚠️</div>
+        <div class="empty-state__title">Couldn't load canteens</div>
+        <p class="text-muted">${escapeHtml(err.message)}</p>
+      </div>`;
+  }
+}
+
+loadCanteens();
+</script>
+</body>
+</html>

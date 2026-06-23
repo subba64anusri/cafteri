@@ -1,20 +1,37 @@
 const express = require('express');
 const router = express.Router();
 const { Order, Menu } = require('../models');
+const { requireManager, requireChef, loadCanteen } = require('../middleware/auth');
 
-// GET /api/reports/summary — today's revenue, today's orders, total menu items
-router.get('/summary', async (req, res) => {
+// Both routes below accept either a manager (any canteen via canteenId) or a
+// chef (locked to their own canteen, canteenId in the request is ignored and
+// replaced with the chef's actual assignment).
+async function authorizeForCanteen(req, res, next) {
+  if (req.header('x-chef-username')) {
+    return requireChef(req, res, () => {
+      req.query.canteenId = String(req.chef.canteen._id);
+      req.params.canteenId = String(req.chef.canteen._id);
+      next();
+    });
+  }
+  return requireManager(req, res, next);
+}
+
+// GET /api/reports/summary?canteenId=... — today's revenue, today's orders,
+// total menu items for ONE canteen.
+router.get('/summary', authorizeForCanteen, loadCanteen({ requireActive: false }), async (req, res) => {
   try {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
     const todaysOrders = await Order.find({
+      canteen: req.canteen._id,
       createdAt: { $gte: startOfToday },
       status: { $ne: 'Cancelled' }
     });
 
     const revenue = todaysOrders.reduce((sum, o) => sum + o.total, 0);
-    const menuCount = await Menu.countDocuments();
+    const menuCount = await Menu.countDocuments({ canteen: req.canteen._id });
 
     res.status(200).json({
       revenue,
@@ -27,13 +44,14 @@ router.get('/summary', async (req, res) => {
   }
 });
 
-// GET /api/reports/items — units sold + revenue per item, and per category (for the chart)
-router.get('/items', async (req, res) => {
+// GET /api/reports/items?canteenId=... — units sold + revenue per item, and
+// per category, for ONE canteen.
+router.get('/items', authorizeForCanteen, loadCanteen({ requireActive: false }), async (req, res) => {
   try {
-    const orders = await Order.find({ status: { $ne: 'Cancelled' } });
+    const orders = await Order.find({ canteen: req.canteen._id, status: { $ne: 'Cancelled' } });
 
-    const itemMap = new Map();   // name -> { units, revenue }
-    const categoryMap = new Map(); // category -> revenue
+    const itemMap = new Map();
+    const categoryMap = new Map();
 
     for (const order of orders) {
       for (const item of order.items) {

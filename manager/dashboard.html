@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manager Dashboard · Cafteri</title>
+<link rel="stylesheet" href="../public/css/canteen.css">
+
+<style>
+  :root {
+    --accent: #2b5fd9;
+    --accent-dark: #21459c;
+    --accent-soft: rgba(43, 95, 217, 0.12);
+  }
+
+  body { overflow-x: hidden; }
+
+  .ticket-rail { flex-wrap: wrap; gap: 10px; }
+  .ticket-rail__actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+  .manage-card {
+    padding: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .manage-card__icon { font-size: 26px; margin-bottom: 6px; }
+  .manage-card p { font-size: 14px; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(20, 23, 31, 0.5);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; padding: 20px;
+  }
+  .modal-overlay.is-open { display: flex; }
+  .modal {
+    background: var(--paper);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: var(--shadow-pop);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h2 { font-size: 20px; margin-bottom: 18px; }
+  .modal form { display: flex; flex-direction: column; gap: 14px; }
+  .modal__actions { display: flex; gap: 10px; margin-top: 6px; }
+  .modal__actions .btn { flex: 1; }
+
+  .stock-tag { font-family: var(--font-mono); font-size: 13px; }
+  .stock-tag.is-low { color: #b3531f; font-weight: 600; }
+  .stock-tag.is-out { color: var(--danger-dark); font-weight: 600; }
+
+  .chart-container { position: relative; width: 100%; max-width: 280px; margin: 12px auto 0; }
+</style>
+</head>
+<body>
+
+<div class="ticket-rail">
+  <div class="ticket-rail__brand">🍽️ Cafteri <span class="ticket-rail__role">Manager</span></div>
+  <div class="ticket-rail__actions">
+    <div class="canteen-switcher" id="canteenSwitcherWrap" style="display:none;">
+      <label for="canteenSwitcher">Canteen:</label>
+      <select id="canteenSwitcher"></select>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="allCanteensBtn" style="display:none;">All Canteens</button>
+    <button class="btn btn-danger btn-sm" id="logoutBtn">Logout</button>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- ===================== ALL-CANTEENS VIEW ===================== -->
+  <div id="allCanteensView">
+    <div class="shell__header">
+      <div>
+        <div class="eyebrow">Platform</div>
+        <h1>All Canteens</h1>
+      </div>
+      <button class="btn btn-primary" id="addCanteenBtn">+ Add canteen</button>
+    </div>
+    <div class="grid grid--3" id="canteenGrid">
+      <div class="card skeleton" style="height: 200px;"></div>
+      <div class="card skeleton" style="height: 200px;"></div>
+      <div class="card skeleton" style="height: 200px;"></div>
+    </div>
+  </div>
+
+  <!-- ===================== SINGLE-CANTEEN VIEW ===================== -->
+  <div id="canteenDetailView" style="display:none;">
+    <div class="shell__header">
+      <div>
+        <div class="eyebrow" id="canteenDetailEyebrow">Canteen</div>
+        <h1 id="canteenDetailTitle">—</h1>
+      </div>
+    </div>
+
+    <div class="manager-tabs" id="managerTabs">
+      <button class="manager-tab is-active" data-tab="overview">Overview</button>
+      <button class="manager-tab" data-tab="menu">Menu</button>
+      <button class="manager-tab" data-tab="orders">Orders</button>
+      <button class="manager-tab" data-tab="chefs">Chefs</button>
+      <button class="manager-tab" data-tab="reports">Reports</button>
+    </div>
+
+    <div id="tabContent"></div>
+  </div>
+
+</div>
+
+<!-- ===================== MODALS ===================== -->
+
+<div class="modal-overlay" id="canteenModalOverlay">
+  <div class="modal">
+    <h2 id="canteenModalTitle">Add Canteen</h2>
+    <form id="canteenForm">
+      <div class="field">
+        <label for="canteenName">Name</label>
+        <input type="text" id="canteenName" placeholder="e.g. Main Campus Canteen" required>
+      </div>
+      <div class="field">
+        <label for="canteenSlug">Slug (used in URLs, unique)</label>
+        <input type="text" id="canteenSlug" placeholder="e.g. main-campus" required>
+      </div>
+      <div class="field">
+        <label for="canteenLocation">Location</label>
+        <input type="text" id="canteenLocation" placeholder="e.g. Block A, Ground Floor">
+      </div>
+      <div class="field">
+        <label for="canteenDescription">Description</label>
+        <input type="text" id="canteenDescription" placeholder="Short description (optional)">
+      </div>
+      <div id="canteenModalError" class="field-error"></div>
+      <div class="modal__actions">
+        <button type="button" class="btn btn-outline" id="canteenModalCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="canteenModalSubmitBtn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="itemModalOverlay">
+  <div class="modal">
+    <h2 id="itemModalTitle">Add Item</h2>
+    <form id="itemForm">
+      <div class="field">
+        <label for="itemName">Name</label>
+        <input type="text" id="itemName" placeholder="e.g. Masala Dosa" required>
+      </div>
+      <div class="field">
+        <label for="itemPrice">Price (₹)</label>
+        <input type="number" id="itemPrice" min="0" step="1" required>
+      </div>
+      <div class="field">
+        <label for="itemQuantity">Stock quantity</label>
+        <input type="number" id="itemQuantity" min="0" step="1" required>
+      </div>
+      <div class="field">
+        <label for="itemCategory">Category</label>
+        <select id="itemCategory" required></select>
+      </div>
+      <div id="itemModalError" class="field-error"></div>
+      <div class="modal__actions">
+        <button type="button" class="btn btn-outline" id="itemModalCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="itemModalSubmitBtn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="chefModalOverlay">
+  <div class="modal">
+    <h2 id="chefModalTitle">Add Chef</h2>
+    <form id="chefForm">
+      <div class="field">
+        <label for="chefUsername">Username</label>
+        <input type="text" id="chefUsername" placeholder="e.g. chef3" required>
+      </div>
+      <div class="field" id="chefPasswordField">
+        <label for="chefPassword">Password</label>
+        <input type="text" id="chefPassword" placeholder="At least 4 characters">
+      </div>
+      <div class="field">
+        <label for="chefFullName">Full name</label>
+        <input type="text" id="chefFullName" placeholder="e.g. Chef Ramesh">
+      </div>
+      <div class="field">
+        <label for="chefContact">Contact (optional)</label>
+        <input type="text" id="chefContact" placeholder="Phone or email">
+      </div>
+      <div class="field">
+        <label for="chefCanteen">Assigned canteen</label>
+        <select id="chefCanteen" required></select>
+      </div>
+      <div class="field">
+        <label for="chefIsActive">Status</label>
+        <select id="chefIsActive">
+          <option value="true">Active</option>
+          <option value="false">Disabled</option>
+        </select>
+      </div>
+      <div id="chefModalError" class="field-error"></div>
+      <div class="modal__actions">
+        <button type="button" class="btn btn-outline" id="chefModalCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="chefModalSubmitBtn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="resetPasswordModalOverlay">
+  <div class="modal">
+    <h2>Reset Password</h2>
+    <form id="resetPasswordForm">
+      <p class="text-muted" style="margin-bottom: 4px;">Set a new password for <strong id="resetPasswordChefName"></strong>.</p>
+      <div class="field">
+        <label for="newChefPassword">New password</label>
+        <input type="text" id="newChefPassword" placeholder="At least 4 characters" required>
+      </div>
+      <div id="resetPasswordModalError" class="field-error"></div>
+      <div class="modal__actions">
+        <button type="button" class="btn btn-outline" id="resetPasswordCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="resetPasswordSubmitBtn">Reset</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="../public/js/config.js"></script>
+<script src="../public/js/shared.js"></script>
+<script src="manager_app.js"></script>
+<script src="../public/js/config.js"></script>
+<script src="../public/js/shared.js"></script>
+<script src="manager_app.js"></script>
+
+</body>
+</html>

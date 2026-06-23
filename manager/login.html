@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manager Login · Cafteri</title>
+    <link rel="stylesheet" href="../public/css/canteen.css" />
+    <style>
+        :root {
+            --accent: #2b5fd9;
+            --accent-dark: #21459c;
+            --accent-soft: rgba(43, 95, 217, 0.12);
+        }
+
+        .banner:not(.is-visible) { display: none; }
+        .banner.is-visible { display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="auth-shell">
+        <div class="auth-card">
+            <a href="../index.html" class="back-link">← Back to portals</a>
+            <h1>Manager Login</h1>
+
+            <div id="banner" class="banner banner--error" role="alert"></div>
+
+            <form id="loginForm" novalidate>
+                <div class="field">
+                    <label for="username">Username</label>
+                    <input
+                    type="text"
+                    id="username"
+                    placeholder="Enter your manager username"
+                    autocomplete="username"
+                    required
+                    />
+                </div>
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input
+                    type="password"
+                    id="password"
+                    placeholder="••••••••"
+                    autocomplete="current-password"
+                    required
+                    />
+                </div>
+                <button class="btn btn-primary btn-block" type="submit" id="submitBtn">
+                    Login
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="../public/js/config.js"></script>
+    <script src="../public/js/shared.js"></script>
+
+    <script>
+        (function() {
+            'use strict';
+
+            const form = document.getElementById('loginForm');
+            const banner = document.getElementById('banner');
+            const submitBtn = document.getElementById('submitBtn');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+
+            function setBanner(message) {
+                if (!message) {
+                    banner.classList.remove('is-visible');
+                    banner.textContent = '';
+                    return;
+                }
+                banner.textContent = message;
+                banner.classList.add('is-visible');
+            }
+
+            function setLoading(isLoading) {
+                submitBtn.disabled = isLoading;
+                submitBtn.textContent = isLoading ? 'Logging in…' : 'Login';
+            }
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setBanner('');
+
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value.trim();
+
+                if (!username || !password) {
+                    setBanner('Please fill in both username and password.');
+                    return;
+                }
+
+                setLoading(true);
+
+                try {
+                    const result = await apiFetch('/api/manager/login', {
+                        method: 'POST',
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    Session.setManager(result.user.username);
+                    window.location.href = 'dashboard.html';
+                } catch (err) {
+                    setBanner(err.message || 'Login failed. Please try again.');
+                    setLoading(false);
+                }
+            });
+
+            usernameInput.addEventListener('input', () => setBanner(''));
+            passwordInput.addEventListener('input', () => setBanner(''));
+        })();
+    </script>
+
+</body>
+</html>

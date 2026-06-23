@@ -1,16 +1,18 @@
 require('dotenv').config();
-
+const bcrypt = require('bcrypt');
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const { Server } = require('socket.io');
 
-const { Admin, Chef } = require('./models');
+const { Manager } = require('./models');
 const authRoutes = require('./routes/auth');
+const managerRoutes = require('./routes/manager');
 const menuRoutes = require('./routes/menu');
 const orderRoutes = require('./routes/orders');
 const reportRoutes = require('./routes/reports');
+const canteenRoutes = require('./routes/canteens');
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/canteenDB';
@@ -23,12 +25,14 @@ const corsOptions = {
   origin: CORS_ORIGINS.includes('*') ? '*' : CORS_ORIGINS
 };
 
-const io = new Server(server, {
-  cors: corsOptions
-});
+const io = new Server(server, { cors: corsOptions });
 
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// Serve the static frontend (landing page + manager/chef/student portals)
+// directly from this same server, so the whole app runs from one origin.
+// app.use(express.static(require('path').join(__dirname, 'public')));
 
 // Make io available to every route via req.io, so any route can broadcast
 // live updates without importing the socket server directly.
@@ -51,7 +55,7 @@ app.get('/', (req, res) => {
 });
 
 // 3. Serve folders so you can reach role-specific files
-app.use('/admin', express.static(path.join(__dirname, 'admin')));
+app.use('/manager', express.static(path.join(__dirname, 'manager')));
 app.use('/chef', express.static(path.join(__dirname, 'chef')));
 app.use('/student', express.static(path.join(__dirname, 'student')));
 
@@ -61,18 +65,31 @@ app.use('/student', express.static(path.join(__dirname, 'student')));
 
 
 // ---------------------------------------------------------------------------
-// Socket.IO — students join a room keyed by their email so order-status
-// updates can be targeted to exactly the right person, plus a shared
-// "kitchen" room for chef/admin dashboards.
+// Socket.IO — rooms are now scoped PER CANTEEN, which is the core of the
+// multi-tenant isolation on the realtime side:
+//   - a student joins `student:<email>` (unchanged — order-status updates
+//     are targeted to exactly the right person regardless of canteen)
+//   - a chef/manager viewing a specific canteen joins `kitchen:<canteenId>`
+//     so they only receive events for that canteen's orders/menu, not every
+//     canteen on the platform.
+// Managers can switch canteens client-side by leaving one kitchen room and
+// joining another (handled via the same 'identify' event, re-emitted).
 // ---------------------------------------------------------------------------
 io.on('connection', (socket) => {
-  socket.on('identify', ({ role, email }) => {
+  socket.on('identify', ({ role, email, canteenId }) => {
     if (role === 'student' && email) {
       socket.join(`student:${email.toLowerCase().trim()}`);
     }
-    if (role === 'chef' || role === 'admin') {
-      socket.join('kitchen');
+    if ((role === 'chef' || role === 'manager') && canteenId) {
+      socket.join(`kitchen:${canteenId}`);
     }
+  });
+
+  // Lets a manager move from watching one canteen to another without a full
+  // reconnect — leave the old room, join the new one.
+  socket.on('switch-canteen', ({ previousCanteenId, canteenId }) => {
+    if (previousCanteenId) socket.leave(`kitchen:${previousCanteenId}`);
+    if (canteenId) socket.join(`kitchen:${canteenId}`);
   });
 
   socket.on('disconnect', () => {});
@@ -88,30 +105,26 @@ mongoose.connect(MONGO_URI)
     console.error('   Is mongod running locally? Check MONGO_URI in your .env file.');
   });
 
-// Auto-create default admin/chef accounts for first-time setup
-async function ensureDefaultAccounts() {
+// Auto-create a default manager account for first-time setup. Chefs are
+// intentionally NOT auto-created anymore — they must be created by a
+// manager through the Chef Management UI, since every chef now needs a
+// canteen assignment that only a manager can make.
+async function ensureDefaultManager() {
   try {
-    const adminUsername = process.env.DEFAULT_ADMIN_USERNAME || 'admin';
-    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'password123';
-    const chefUsername = process.env.DEFAULT_CHEF_USERNAME || 'chef1';
-    const chefPassword = process.env.DEFAULT_CHEF_PASSWORD || 'password123';
+    const username = process.env.DEFAULT_MANAGER_USERNAME || 'manager';
+    const password = process.env.DEFAULT_MANAGER_PASSWORD || 'password123';
 
-    const existingAdmin = await Admin.findOne({ username: adminUsername });
-    if (!existingAdmin) {
-      await new Admin({ username: adminUsername, password: adminPassword }).save();
-      console.log(`👤 Default admin created -> ${adminUsername} / ${adminPassword}`);
-    }
-
-    const existingChef = await Chef.findOne({ username: chefUsername });
-    if (!existingChef) {
-      await new Chef({ username: chefUsername, password: chefPassword }).save();
-      console.log(`👨‍🍳 Default chef created -> ${chefUsername} / ${chefPassword}`);
+    const existing = await Manager.findOne({ username });
+    if (!existing) {
+      const passwordHash = await bcrypt.hash(password, 10);
+      await new Manager({ username, passwordHash, fullName: 'Platform Manager' }).save();
+      console.log(`👤 Default manager created -> ${username} / ${password}`);
     }
   } catch (err) {
-    console.error('Error ensuring default accounts:', err.message);
+    console.error('Error ensuring default manager:', err.message);
   }
 }
-mongoose.connection.once('open', ensureDefaultAccounts);
+mongoose.connection.once('open', ensureDefaultManager);
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -120,9 +133,11 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', dbState: mongoose.connection.readyState });
 });
 
-// auth.js defines full paths itself (/admin/login, /chef/login, /student/login,
-// /student/register) so it's mounted once at /api rather than per-role.
+// auth.js defines full paths itself (/manager/login, /chef/login,
+// /student/login, /student/register) so it's mounted once at /api.
 app.use('/api', authRoutes);
+app.use('/api/manager', managerRoutes);   // manager-only: chef CRUD, canteen CRUD
+app.use('/api/canteens', canteenRoutes);  // public-readable canteen list/details
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/reports', reportRoutes);
