@@ -4,13 +4,12 @@ const Razorpay = require('razorpay');
 
 const PaymentIntent = require('../models/PaymentIntent');
 // const { Order } = require('../models'); // <-- uncomment once you share your Order model,
-                                             //     see createOrderFromPaymentIntent() below.
 
 const router = express.Router();
 
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
+  key_id: "rzp_live_T5LOokxUfyhkVd",
+  key_secret: "R4XhHgO6Dw95X3S8qYsPWXWK"
 });
 
 // ---------------------------------------------------------------------------
@@ -69,7 +68,7 @@ router.post('/create-order', async (req, res) => {
       razorpayOrderId: razorpayOrder.id,
       amount: amountInPaise,
       currency: 'INR',
-      keyId: process.env.RAZORPAY_KEY_ID
+      keyId: "rzp_live_T5LOokxUfyhkVd"
     });
   } catch (err) {
     console.error('Error creating Razorpay order:', err);
@@ -116,7 +115,7 @@ router.get('/status/:razorpayOrderId', async (req, res) => {
 // ---------------------------------------------------------------------------
 async function paymentStatusWebhookHandler(req, res) {
   const signature = req.headers['x-razorpay-signature'];
-  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const webhookSecret = "azkcmWy_bAJrn2k";
 
   if (!signature || !webhookSecret) {
     console.error('Webhook rejected: missing signature header or RAZORPAY_WEBHOOK_SECRET not configured.');
