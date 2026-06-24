@@ -1,7 +1,7 @@
 /* Manager Dashboard — single page, tab-based, switches canteens without a
    reload. Mirrors the original app's pattern: vanilla JS, render functions,
    event delegation, apiFetch + showToast for all server interaction. */
-  
+
 (function () {
   'use strict';
 
@@ -27,7 +27,12 @@
   let editingChefId = null;
   let resettingChefId = null;
   let salesChart = null;
-  let reportDataCache = null; // <-- Kept inside the closure safe from global collision
+
+  // Reports tab state
+  let reportView = 'today';        // 'today' | 'history' | 'historyDay'
+  let reportDataCache = null;      // { items, categories, date } for whichever report is on screen
+  let historyListCache = [];       // [{ date, revenue, units }, ...]
+  let historySelectedDate = null;  // 'YYYY-MM-DD' string when viewing a specific history day
 
 
   // ---------------------------------------------------------------------
@@ -93,6 +98,11 @@
     if (!btn) return;
     activeTab = btn.dataset.tab;
     setActiveTabButton(activeTab);
+    if (activeTab === 'reports') {
+      // Reset to the "today" view every time the Reports tab is opened fresh.
+      reportView = 'today';
+      historySelectedDate = null;
+    }
     renderActiveTab();
   });
 
@@ -294,8 +304,8 @@
         <button class="btn btn-primary" id="addFoodBtn">+ Add item</button>
       </div>
       <div class="category-tabs" id="categoryTabs"></div>
-      <div class="table-wrapper">
-        <table>
+      <div class="table-wrapper table-wrapper--scroll">
+        <table class="table--menu">
           <thead><tr><th>Food</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
           <tbody id="menuTableBody"></tbody>
         </table>
@@ -346,8 +356,10 @@
         <td class="price-cell">${formatRupees(item.price)}</td>
         <td>${stockTag(item)}</td>
         <td class="action-cell">
-          <button class="btn btn-outline btn-sm" data-edit="${item._id}">Edit</button>
-          <button class="btn btn-danger btn-sm" data-delete="${item._id}">Delete</button>
+          <div class="action-cell__row">
+            <button class="btn btn-outline btn-sm" data-edit="${item._id}">Edit</button>
+            <button class="btn btn-danger btn-sm" data-delete="${item._id}">Delete</button>
+          </div>
         </td>
       </tr>`).join('');
 
@@ -514,8 +526,8 @@
         <div></div>
         <button class="btn btn-primary" id="addChefBtn">+ Add chef</button>
       </div>
-      <div class="table-wrapper">
-        <table>
+      <div class="table-wrapper table-wrapper--scroll">
+        <table class="table--chefs">
           <thead><tr><th>Username</th><th>Name</th><th>Contact</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody id="chefTableBody"></tbody>
         </table>
@@ -551,9 +563,11 @@
         <td>${escapeHtml(chef.contact || '—')}</td>
         <td><span class="role-badge ${chef.isActive ? 'role-badge--active' : 'role-badge--inactive'}">${chef.isActive ? 'Active' : 'Disabled'}</span></td>
         <td class="action-cell">
-          <button class="btn btn-outline btn-sm" data-edit-chef="${chef._id}">Edit</button>
-          <button class="btn btn-outline btn-sm" data-reset-chef="${chef._id}">Reset password</button>
-          <button class="btn btn-danger btn-sm" data-delete-chef="${chef._id}">Delete</button>
+          <div class="action-cell__row">
+            <button class="btn btn-outline btn-sm" data-edit-chef="${chef._id}">Edit</button>
+            <button class="btn btn-outline btn-sm" data-reset-chef="${chef._id}">Reset password</button>
+            <button class="btn btn-danger btn-sm" data-delete-chef="${chef._id}">Delete</button>
+          </div>
         </td>
       </tr>`).join('');
 
@@ -703,46 +717,102 @@
   }
 
   // =======================================================================
-  // REPORTS TAB — mirrors the original reports.html chart+table, scoped
+  // REPORTS TAB
+  // Three views, controlled by `reportView`:
+  //   'today'      — today's item breakdown + category chart (default)
+  //   'history'    — list of past dates with that day's revenue/units
+  //   'historyDay' — item breakdown + category chart for one chosen date
+  // Each of 'today' and 'historyDay' has its own working "Export PDF".
   // =======================================================================
+
+  function formatReportDate(dateStr) {
+    // dateStr is 'YYYY-MM-DD'. Display as e.g. "23 Jun 2026".
+    const d = new Date(dateStr + 'T00:00:00');
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
   function renderReportsTab(mount) {
+    if (reportView === 'history') return renderHistoryListView(mount);
+    if (reportView === 'historyDay') return renderReportDetailView(mount, historySelectedDate);
+    return renderReportDetailView(mount, null); // null date = today
+  }
+
+  // --- "Today" / single-day detail view (shared markup for today + history day) ---
+  function renderReportDetailView(mount, dateStr) {
+    reportDataCache = null;
+    const isHistoryDay = !!dateStr;
+
     mount.innerHTML = `
       <div class="shell__header" style="margin-bottom:18px;">
-        <div></div>
-        <button class="btn btn-primary btn-sm" id="exportReportPdfBtn">⬇ Export PDF</button>
+        <div>
+          ${isHistoryDay ? `<button class="btn btn-outline btn-sm" id="backToHistoryBtn">← Back to history</button>` : ''}
+        </div>
+        <div class="ticket-rail__actions" style="justify-content:flex-end;">
+          ${!isHistoryDay ? `<button class="btn btn-outline btn-sm" id="viewHistoryBtn">📅 History</button>` : ''}
+          <button class="btn btn-primary btn-sm" id="exportReportPdfBtn">⬇ Export PDF</button>
+        </div>
       </div>
-      <div class="layout-split" style="display:grid; grid-template-columns: 2fr 1fr; gap:22px; align-items:start;">
+      <div class="report-day-heading">
+        <h2>${isHistoryDay ? escapeHtml(formatReportDate(dateStr)) : "Today's report"}</h2>
+        <div class="report-day-total" id="reportDayTotal">—</div>
+      </div>
+      <div class="layout-split">
         <div class="card card--accent panel" style="padding:24px;">
           <h2>Item breakdown</h2>
-          <div class="panel__sub" style="font-size:13px; color:var(--muted); margin-bottom:18px;">All-time units sold and revenue</div>
-          <table>
-            <thead><tr><th>Food item</th><th>Units sold</th><th>Revenue</th></tr></thead>
-            <tbody id="reportTableBody"></tbody>
-          </table>
+          <div class="panel__sub" style="font-size:13px; color:var(--muted); margin-bottom:18px;">Units sold and revenue${isHistoryDay ? '' : ' today'}</div>
+          <div class="table-wrapper--scroll table-wrapper--flush">
+            <table>
+              <thead><tr><th>Food item</th><th>Units sold</th><th>Revenue</th></tr></thead>
+              <tbody id="reportTableBody"></tbody>
+            </table>
+          </div>
         </div>
         <div class="card card--accent panel" style="padding:24px; text-align:center;">
           <h2>Revenue by category</h2>
           <div class="panel__sub" style="font-size:13px; color:var(--muted); margin-bottom:18px;">Where the money's coming from</div>
           <div class="chart-container"><canvas id="revenueChart"></canvas></div>
         </div>
-      </div>
-      <style>@media (max-width: 860px) { #tabContent .layout-split { grid-template-columns: 1fr !important; } }</style>`;
+      </div>`;
+
+    if (isHistoryDay) {
+      document.getElementById('backToHistoryBtn').addEventListener('click', () => {
+        reportView = 'history';
+        historySelectedDate = null;
+        renderActiveTab();
+      });
+    } else {
+      document.getElementById('viewHistoryBtn').addEventListener('click', () => {
+        reportView = 'history';
+        renderActiveTab();
+      });
+    }
 
     document.getElementById('exportReportPdfBtn').addEventListener('click', exportReportPdf);
 
-    loadReportsForTab();
+    loadReportDetail(dateStr);
   }
 
-  async function loadReportsForTab() {
+  async function loadReportDetail(dateStr) {
     if (!activeCanteen) return; // Guard clause
-    try {
-      const data = await apiFetch(`/api/reports/items?canteenId=${activeCanteen._id}`);
-      reportDataCache = data;   // <-- Correctly writes to the IIFE cache variable
-      const tbody = document.getElementById('reportTableBody');
-      if (!tbody) return;
+    const tbody = document.getElementById('reportTableBody');
+    const totalEl = document.getElementById('reportDayTotal');
 
-      if (data.items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-state__icon">📊</div><div class="empty-state__title">No sales yet</div><p class="text-muted">Numbers will show up here once orders come in.</p></div></td></tr>`;
+    try {
+      const url = dateStr
+        ? `/api/reports/items?canteenId=${activeCanteen._id}&date=${encodeURIComponent(dateStr)}`
+        : `/api/reports/items?canteenId=${activeCanteen._id}`;
+      const data = await apiFetch(url);
+
+      // Keep the date on the cache so Export PDF knows which day it's for,
+      // even though the backend response itself doesn't need to repeat it.
+      reportDataCache = Object.assign({ date: dateStr || 'today' }, data);
+
+      if (!tbody) return; // tab changed while the request was in flight
+
+      if (!data.items || data.items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-state__icon">📊</div><div class="empty-state__title">No sales ${dateStr ? 'on this day' : 'yet'}</div><p class="text-muted">Numbers will show up here once orders come in.</p></div></td></tr>`;
+        if (totalEl) totalEl.textContent = formatRupees(0);
         renderManagerChart([]);
         return;
       }
@@ -754,7 +824,9 @@
         return `<tr><td>${escapeHtml(item.name)}</td><td class="qty-cell">${item.units} units</td><td class="price-cell">${formatRupees(item.revenue)}</td></tr>`;
       }).join('') + `<tr class="row--total"><td>Total</td><td>${totalUnits} units</td><td>${formatRupees(totalRevenue)}</td></tr>`;
 
-      renderManagerChart(data.categories);
+      if (totalEl) totalEl.textContent = formatRupees(totalRevenue);
+
+      renderManagerChart(data.categories || []);
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -777,36 +849,111 @@
     });
   }
 
-  // Moved completely inside the IIFE closure to read local variables safely
+  // --- History list view: every past day with its own total ---
+  function renderHistoryListView(mount) {
+    mount.innerHTML = `
+      <div class="shell__header" style="margin-bottom:18px;">
+        <div>
+          <button class="btn btn-outline btn-sm" id="backToTodayBtn">← Back to today</button>
+        </div>
+        <div></div>
+      </div>
+      <div class="table-wrapper table-wrapper--scroll">
+        <table class="table--history">
+          <thead><tr><th>Date</th><th>Units sold</th><th>Revenue</th><th>Actions</th></tr></thead>
+          <tbody id="historyTableBody"><tr><td colspan="4"><div class="empty-state"><p class="text-muted">Loading…</p></div></td></tr></tbody>
+        </table>
+      </div>`;
+
+    document.getElementById('backToTodayBtn').addEventListener('click', () => {
+      reportView = 'today';
+      renderActiveTab();
+    });
+
+    loadHistoryList();
+  }
+
+  async function loadHistoryList() {
+    if (!activeCanteen) return; // Guard clause
+    const tbody = document.getElementById('historyTableBody');
+    try {
+      historyListCache = await apiFetch(`/api/reports/history?canteenId=${activeCanteen._id}`);
+      if (!tbody) return; // tab changed while the request was in flight
+
+      if (!historyListCache || historyListCache.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-state__icon">📅</div><div class="empty-state__title">No history yet</div><p class="text-muted">Past days with sales will show up here.</p></div></td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = historyListCache.map(day => `
+        <tr>
+          <td>${escapeHtml(formatReportDate(day.date))}</td>
+          <td class="qty-cell">${day.units} units</td>
+          <td class="price-cell">${formatRupees(day.revenue)}</td>
+          <td class="action-cell">
+            <div class="action-cell__row">
+              <button class="btn btn-outline btn-sm" data-view-day="${day.date}">View</button>
+            </div>
+          </td>
+        </tr>`).join('');
+
+      tbody.querySelectorAll('[data-view-day]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          historySelectedDate = btn.dataset.viewDay;
+          reportView = 'historyDay';
+          renderActiveTab();
+        });
+      });
+    } catch (err) {
+      showToast(err.message, 'error');
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-state__icon">⚠️</div><div class="empty-state__title">Couldn't load history</div><p class="text-muted">${escapeHtml(err.message)}</p></div></td></tr>`;
+      }
+    }
+  }
+
+  // --- Export PDF: works for both "today" and any chosen history day ---
   function exportReportPdf() {
     if (!reportDataCache) {
       showToast('Report data is still loading. Try again in a moment.', 'error');
       return;
     }
+    if (typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF) {
+      showToast("Couldn't load the PDF library. Check your connection and try again.", 'error');
+      return;
+    }
 
-    const { items, categories } = reportDataCache;
+    const { items, categories, date } = reportDataCache;
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
+    if (typeof doc.autoTable !== 'function') {
+      showToast("Couldn't load the PDF table library. Check your connection and try again.", 'error');
+      return;
+    }
+
     const canteenName = activeCanteen ? activeCanteen.name : 'Canteen';
     const generatedAt = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+    const reportLabel = date && date !== 'today' ? formatReportDate(date) : "Today (" + new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ")";
 
     // --- Header ---
     doc.setFontSize(18);
-    doc.setTextColor(43, 95, 217); 
+    doc.setTextColor(43, 95, 217);
     doc.text('Sales Report', 40, 50);
 
     doc.setFontSize(11);
     doc.setTextColor(80, 80, 80);
     doc.text(`Canteen: ${canteenName}`, 40, 72);
-    doc.text(`Generated: ${generatedAt}`, 40, 88);
+    doc.text(`Report for: ${reportLabel}`, 40, 88);
+    doc.text(`Generated: ${generatedAt}`, 40, 104);
 
-    let cursorY = 110;
+    let cursorY = 126;
 
     // --- Item breakdown table ---
     if (!items || items.length === 0) {
       doc.setFontSize(12);
-      doc.text('No sales yet.', 40, cursorY);
+      doc.setTextColor(20, 23, 31);
+      doc.text('No sales for this report.', 40, cursorY);
       cursorY += 24;
     } else {
       let totalUnits = 0, totalRevenue = 0;
@@ -855,8 +1002,9 @@
       });
     }
 
+    const dateSlug = date && date !== 'today' ? date : new Date().toISOString().slice(0, 10);
     const fileSlug = canteenName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    doc.save(`sales-report-${fileSlug}-${Date.now()}.pdf`);
+    doc.save(`sales-report-${fileSlug}-${dateSlug}.pdf`);
     showToast('Report exported.');
   }
 

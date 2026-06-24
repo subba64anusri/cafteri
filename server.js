@@ -13,6 +13,7 @@ const menuRoutes = require('./routes/menu');
 const orderRoutes = require('./routes/orders');
 const reportRoutes = require('./routes/reports');
 const canteenRoutes = require('./routes/canteens');
+const paymentRoutes = require('./routes/payment');
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/canteenDB';
@@ -28,6 +29,18 @@ const corsOptions = {
 const io = new Server(server, { cors: corsOptions });
 
 app.use(cors(corsOptions));
+
+// ---------------------------------------------------------------------------
+// Razorpay webhook — MUST be mounted before express.json() below.
+// Razorpay signs the exact raw request body, so this route uses
+// express.raw() to get the unparsed Buffer instead of the global JSON
+// parser. If express.json() ran first, req.body would already be a parsed
+// object and signature verification would fail (or worse, silently pass on
+// a wrong byte comparison). Path matches exactly what's configured in the
+// Razorpay dashboard: https://www.cafteri.com/api/payment_status
+// ---------------------------------------------------------------------------
+app.post('/api/payment_status', paymentRoutes.webhookRawBodyParser, paymentRoutes.paymentStatusWebhookHandler);
+
 app.use(express.json());
 
 // Serve the static frontend (landing page + manager/chef/student portals)
@@ -141,6 +154,7 @@ app.use('/api/canteens', canteenRoutes);  // public-readable canteen list/detail
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/payment', paymentRoutes);   // create-order + status poll (webhook is mounted above, pre-json)
 
 // Friendly 404 for unmatched API routes
 app.use('/api', (req, res) => {

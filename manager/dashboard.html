@@ -54,6 +54,92 @@
   .stock-tag.is-out { color: var(--danger-dark); font-weight: 600; }
 
   .chart-container { position: relative; width: 100%; max-width: 280px; margin: 12px auto 0; }
+
+  /* The canteen switcher + All Canteens button now live in the light
+     shell__header card (next to the canteen title) instead of the dark
+     ticket-rail, so they need light-background colors here. */
+  #canteenDetailView .shell__header { flex-wrap: wrap; }
+  #canteenDetailView .shell__header .canteen-switcher {
+    color: var(--muted);
+  }
+  #canteenDetailView .shell__header .canteen-switcher select {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  #canteenDetailView .shell__header .canteen-switcher select option {
+    color: var(--ink);
+  }
+
+  /* --- Scrollable tables (Chefs / Menu / Reports / History) ---------------
+     On narrow screens the table scrolls horizontally inside its card
+     instead of squashing columns or letting buttons spill off-screen. */
+  .table-wrapper--scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-wrapper--scroll table {
+    min-width: 560px; /* keeps columns + action buttons legible; triggers scroll on phones */
+  }
+  .table-wrapper--scroll.table-wrapper--flush {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .table-wrapper--scroll.table-wrapper--flush table {
+    min-width: 480px;
+  }
+
+  /* Action buttons: keep Edit/Delete/Reset on one row inside the scroll
+     area instead of wrapping awkwardly under each other. */
+  .action-cell { white-space: nowrap; }
+  .action-cell__row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  /* Reports: heading + that day's total revenue */
+  .report-day-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .report-day-heading h2 { font-size: 20px; }
+  .report-day-total {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent-dark);
+  }
+
+  .layout-split {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 22px;
+    align-items: start;
+  }
+
+  /* --- Mobile breakpoint -------------------------------------------------- */
+  @media (max-width: 760px) {
+    .shell { padding: 20px 14px 48px; }
+    .ticket-rail { padding: 12px 14px; }
+    .ticket-rail__brand { font-size: 16px; }
+    .shell__header h1 { font-size: 22px; }
+
+    .manager-tab { white-space: nowrap; }
+
+    .layout-split { grid-template-columns: 1fr; }
+
+    .report-day-heading { flex-direction: column; align-items: flex-start; }
+
+    /* Stack stat cards / canteen grid to one column on phones */
+    .grid--3 { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -61,11 +147,6 @@
 <div class="ticket-rail">
   <div class="ticket-rail__brand">🍽️ Cafteri <span class="ticket-rail__role">Manager</span></div>
   <div class="ticket-rail__actions">
-    <div class="canteen-switcher" id="canteenSwitcherWrap" style="display:none;">
-      <label for="canteenSwitcher">Canteen:</label>
-      <select id="canteenSwitcher"></select>
-    </div>
-    <button class="btn btn-ghost btn-sm" id="allCanteensBtn" style="display:none;">All Canteens</button>
     <button class="btn btn-danger btn-sm" id="logoutBtn">Logout</button>
   </div>
 </div>
@@ -94,6 +175,13 @@
       <div>
         <div class="eyebrow" id="canteenDetailEyebrow">Canteen</div>
         <h1 id="canteenDetailTitle">—</h1>
+      </div>
+      <div class="ticket-rail__actions" style="gap:10px;">
+        <div class="canteen-switcher" id="canteenSwitcherWrap" style="display:none;">
+          <label for="canteenSwitcher">Canteen:</label>
+          <select id="canteenSwitcher"></select>
+        </div>
+        <button class="btn btn-outline btn-sm" id="allCanteensBtn" style="display:none;">All Canteens</button>
       </div>
     </div>
 
@@ -229,12 +317,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script src="../public/js/config.js"></script>
-<script src="../public/js/shared.js"></script>
-<script src="manager_app.js"></script>
 <script src="../public/js/config.js"></script>
 <script src="../public/js/shared.js"></script>
 <script src="manager_app.js"></script>
